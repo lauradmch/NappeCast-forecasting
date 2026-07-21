@@ -10,6 +10,6 @@ api:
       - "10192X0095/P21B"
   weather:
     provider: "open-meteo"
-    url: "https://archive-api.open-meteo.com/v1/archive"
-    start_date: "2016-01-01"
+    url_archive: "https://archive-api.open-meteo.com/v1/archive"
+    start_date: "2017-01-01"
     
