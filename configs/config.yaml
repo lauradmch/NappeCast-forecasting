@@ -11,4 +11,5 @@ api:
   weather:
     provider: "open-meteo"
     url: "https://archive-api.open-meteo.com/v1/archive"
+    start_date: "2016-01-01"
     
