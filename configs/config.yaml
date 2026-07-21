@@ -8,6 +8,8 @@ api:
       - "10193X0151/P29B"
       - "09938X0164/P12B"
       - "10192X0095/P21B"
+      - "10916X0061/F1N4"
+      - "10906X0039/C2-1"
   weather:
     provider: "open-meteo"
     url_archive: "https://archive-api.open-meteo.com/v1/archive"
