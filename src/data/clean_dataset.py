@@ -15,7 +15,7 @@ def piezometer_dataset_cleaning(df: pd.DataFrame) -> pd.DataFrame:
     Objectives of this function is to clean the piezometer dataset before merging with 
     weather dataset and EDA.
     """
-    
+    df = df.copy()
     # Dropping columns
     df["date_mesure"] = pd.to_datetime(df["date_mesure"])
     columns_to_drop = ['code_nature_mesure', 'nom_nature_mesure', 'Unnamed: 0', 'urn_bss', 
@@ -27,6 +27,31 @@ def piezometer_dataset_cleaning(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={'date_mesure': 'date_index'})
 
     logger.info(f"Cleaning dataset piezometer ended!")
+
+    # Export
+    return df
+
+
+def weather_dataset_cleaning(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Objectives of this function is to clean the weather dataset from Open-Meteo before merging with 
+    piezometer dataset and EDA.
+    """
+    df = df.copy()
+    # drop columns with too many Nan, index, localization
+    df = df.drop(columns=["Unnamed: 0", "precipitation_probability_max", "uv_index_clear_sky_max", 
+                          "uv_index_max", "visibility_mean", "showers_sum", "snowfall_sum", "longitude", 
+                          "latitude", "snowfall_water_equivalent_sum"])
+    df = df.rename(columns={"date":"date_index"})
+    # drop columns that are too corrolated
+    cols_to_drop = [
+        'et0_fao_evapotranspiration_sum', 'relative_humidity_2m_mean', 'rain_sum', 'surface_pressure_mean',
+        'dew_point_2m_mean', 'precipitation_hours', 'sunshine_duration',
+        'weather_code', 'apparent_temperature_min', 'apparent_temperature_max', "temperature_2m_min", "temperature_2m_max"
+    ]
+    df = df.drop(columns=cols_to_drop, errors='ignore')
+
+    logger.info(f"Cleaning dataset weather ended!")
 
     # Export
     return df
