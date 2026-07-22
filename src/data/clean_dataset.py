@@ -40,8 +40,8 @@ def weather_dataset_cleaning(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     # drop columns with too many Nan, index, localization
     df = df.drop(columns=["Unnamed: 0", "precipitation_probability_max", "uv_index_clear_sky_max", 
-                          "uv_index_max", "visibility_mean", "showers_sum", "snowfall_sum", "longitude", 
-                          "latitude", "snowfall_water_equivalent_sum"])
+                          "uv_index_max", "visibility_mean", "showers_sum", "snowfall_sum", 
+                          "snowfall_water_equivalent_sum"])
     df = df.rename(columns={"date":"date_index"})
     # drop columns that are too corrolated
     cols_to_drop = [
