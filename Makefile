@@ -4,5 +4,8 @@ install:
 	pip install -r requirements.txt
 
 data:
-	python -m src.data.make_dataset
+	python -m src.data.make_dataset --save-csv --skip-historical
+
+data_histo:
+	python -m src.data.make_dataset --save-csv
 

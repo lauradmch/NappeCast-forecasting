@@ -19,6 +19,7 @@ import argparse
 from pathlib import Path
 from src.config import load_config
 from src.data.clean_dataset import piezometer_dataset_cleaning, weather_dataset_cleaning
+from src.data.helper import save_raw_data
 
 # --------------------------- LOGGING --------------------------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -136,7 +137,7 @@ def fetch_weather_by_year(code_bss: str,
                            lat: str,
                            end_date: str,
                            failed_calls: list[dict],
-						   export_csv: bool = True) -> pd.DataFrame:
+						   save_csv: bool = True) -> pd.DataFrame:
     
     start   = pd.to_datetime(CONFIG["api"]["weather"]["start_date"])
     end     = pd.to_datetime(end_date)
@@ -157,7 +158,7 @@ def fetch_weather_by_year(code_bss: str,
             )
             df_year["code_bss"] = code_bss
 
-            if export_csv == True: 
+            if save_csv == True: 
                 df_year.to_csv(Path(CONFIG["paths"]["data"]["external"] / "meteo_{code_bss.replace('/','')}_{pd.to_datetime(year_start).year}.csv"))
 
             frame.append(df_year)
@@ -188,9 +189,9 @@ def fetch_station (save_csv: bool)-> pd.DataFrame:
     }
      
     df = get_hubeau(CONFIG["api"]["piezometer"]["url_station"], params)
-    df = df.rename(columns={"y": "longitude", "x": "latitude"})
+    df = df.rename(columns={"x": "longitude", "y": "latitude"})
     if save_csv:
-        file = Path(CONFIG["paths"]["data"]["external"] / CONFIG["paths"]["station"]["external_filename"])
+        file = Path(CONFIG["paths"]["data"]["external"]) / CONFIG["paths"]["station"]["external_filename"]
         df.to_csv(file)
     return df
 
@@ -209,7 +210,7 @@ def fetch_piezometer (df_station: pd.DataFrame,
     df = pd.concat(frames, ignore_index=True)
 
     if save_csv:
-        file = Path(CONFIG["paths"]["data"]["external"] / CONFIG["paths"]["piezometer"]["external_filename"])
+        file = Path(CONFIG["paths"]["data"]["external"]) / CONFIG["paths"]["piezometer"]["external_filename"]
         df.to_csv(file)
     return df
 
@@ -233,7 +234,7 @@ def fetch_weather (df_station: pd.DataFrame,
 
     df = pd.concat(frames, ignore_index=True)
     if save_csv:
-        file = Path(CONFIG["paths"]["data"]["external"] / CONFIG["paths"]["weather"]["external_filename"])
+        file = Path(CONFIG["paths"]["data"]["external"])/ CONFIG["paths"]["weather"]["external_filename"]
         df.to_csv(file)
   
 
@@ -259,109 +260,36 @@ def merge_data (df_piezometer: pd.DataFrame,
 
     return merged
 
-
-# ---------------------------- AWS ---------------------------
-def upload_file_to_s3(local_file: Path, bucket: str, key_prefix: str) -> None:
-    """
-    Persiste un fichier local dans le bucket S3 configuré, sous la clé :
-        {key_prefix}/{année}/{mois}/{nom}_{AAAAMMJJ}.csv
-    où {nom} est déduit du dernier segment de key_prefix (ex: "meteo" pour
-    key_prefix="external/meteo").
-    """
-    if not (os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY")):
-        logger.warning("Credentials AWS absents — upload S3 de %s ignoré.", local_file.name)
-        return
-
-    import boto3
-
-    now = pd.Timestamp.now()
-    name = Path(key_prefix).name
-    s3_key = f"{key_prefix}/{now:%Y}/{now:%m}/{name}_{now:%Y%m%d}.csv"
-
-    s3 = boto3.client("s3")
-    s3.upload_file(str(local_file), bucket, s3_key)
-    logger.info("Fichier persisté sur s3://%s/%s", bucket, s3_key)
-
-
-def save_raw_data(df: pd.DataFrame, output_path: Path, file_name: str) -> Path:
-    """
-    Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
-    (paths.s3)
-    """
-    output_path.mkdir(parents=True, exist_ok=True)
-    output_file = output_path / file_name
-    df.to_csv(output_file, index=False)
-
-    s3_cfg = CONFIG.get("s3")
-    if s3_cfg:
-        upload_file_to_s3(output_file, s3_cfg["bucket"], s3_cfg["prefixes"]["raw"])
-
-    return output_file
-
-
-def save_processed_data(df: pd.DataFrame, output_path: Path, file_name: str) -> Path:
-    """
-    Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
-    (paths.s3)
-    """
-    output_path.mkdir(parents=True, exist_ok=True)
-    output_file = output_path / file_name
-    df.to_csv(output_file, index=False)
-
-    s3_cfg = CONFIG.get("s3")
-    if s3_cfg:
-        upload_file_to_s3(output_file, s3_cfg["bucket"], s3_cfg["prefixes"]["processed"])
-
-    return output_file
-
-
-def save_interim_data(df: pd.DataFrame, output_path: Path, file_name: str) -> Path:
-    """
-    Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
-    (paths.s3)
-    """
-    output_path.mkdir(parents=True, exist_ok=True)
-    output_file = output_path / file_name
-    df.to_csv(output_file, index=False)
-
-    s3_cfg = CONFIG.get("s3")
-    if s3_cfg:
-        upload_file_to_s3(output_file, s3_cfg["bucket"], s3_cfg["prefixes"]["interim"])
-
-    return output_file
-
 # ---------------------------- RUN ---------------------------
-def main(): 
+def main()-> str: 
     parser = argparse.ArgumentParser(description="Prépare le dataset propre")
-    parser.add_argument("--skip-historical",action="store_false",help="Ne pas appeler l'API météo")
+    parser.add_argument("--skip-historical",action="store_true",help="Ne pas appeler l'API météo")
     parser.add_argument("--save-csv",action="store_true",help="Persiste les fichiers csv")
 
     args            = parser.parse_args()
     failed_calls    = []
     df_station      = fetch_station(save_csv=args.save_csv)
-    
+
     if not args.skip_historical:
-        logger.info("Récupération historique météo/piezo")
+        logger.info("Mode récupération historique actif")
         df_weather = fetch_weather(df_station, save_csv=args.save_csv, failed_calls=failed_calls)
         df_piezometer = fetch_piezometer(df_station, save_csv=args.save_csv)
     else:
-        logger.info("Récupération forecast météo/piezo")
+        logger.info("Mode récupération forecast actif")
         # chargement des données historisés / voir persistance sur S3 (pas en local)
         df_weather      = pd.read_csv(Path(CONFIG["paths"]["data"]["external"])/CONFIG["paths"]["weather"]["external_filename"])
         df_piezometer   = pd.read_csv(Path(CONFIG["paths"]["data"]["external"])/CONFIG["paths"]["piezometer"]["external_filename"])
         # TODO: prévoir d'interroger uniquement l'API de forecast sur les données manquantes
 
     # clean datasets
-    df_weather      = weather_dataset_cleaning(df_weather)
-    df_piezometer   = piezometer_dataset_cleaning(df_piezometer)
+    df_weather      = weather_dataset_cleaning(df_weather, save_csv=args.save_csv)
+    df_piezometer   = piezometer_dataset_cleaning(df_piezometer,save_csv=args.save_csv)
 
-    # merge dataset
+    # merge datasets
     df_merged       = merge_data(df_piezometer, df_weather)
+    output_file     = save_raw_data(df_merged, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["raw_filename"])
 
-    # df_merged.to_csv(Path(CONFIG["paths"]["data"]["raw"]) / CONFIG["paths"]["raw_filename"])
-    
-
-    output_file = save_raw_data(df_merged, CONFIG["paths"]["data"]["raw"], CONFIG["paths"]["raw_filename"])
+    return output_file
 
 if __name__ == "__main__":
     main()
