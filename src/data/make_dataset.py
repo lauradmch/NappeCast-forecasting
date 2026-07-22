@@ -13,6 +13,8 @@ import requests
 import os
 import numpy as np
 import pandas as pd
+import time
+import argparse
 
 from pathlib import Path
 from src.config import load_config
@@ -24,17 +26,19 @@ CONFIG = load_config()
 
 
 # ---------------------------- API EXTERNE ---------------------------
-
-def get_meteo (lng: str,
+def get_weather (lng: str,
                     lat: str,
 					start_date: str,
-					end_date: str) -> pd.DataFrame :
-    
-    weather_cfg = CONFIG["api"]["weather"]
+					end_date: str,
+					max_retries: int=3) -> pd.DataFrame:
 
-    url = weather_cfg["url_archive"]
-	
-    params = {
+	"""
+    Appel de l'hitstorique,  voir apres pour appel du forecast uniquement.
+    """
+
+	logger.info(f"Get weather data : {lat}°N {lng}°E - {start_date}->{end_date}")
+    
+	params = {
 		"latitude": lat,
 		"longitude": lng,
 		"start_date": start_date,
@@ -42,11 +46,26 @@ def get_meteo (lng: str,
 		"daily": ["weather_code", "temperature_2m_max", "temperature_2m_min", "apparent_temperature_max", "apparent_temperature_min", "sunrise", "sunset", "daylight_duration", "sunshine_duration", "uv_index_max", "uv_index_clear_sky_max", "rain_sum", "showers_sum", "snowfall_sum", "precipitation_sum", "precipitation_hours", "precipitation_probability_max", "shortwave_radiation_sum", "et0_fao_evapotranspiration", "cloud_cover_mean", "dew_point_2m_mean", "et0_fao_evapotranspiration_sum", "relative_humidity_2m_mean", "snowfall_water_equivalent_sum", "pressure_msl_mean", "surface_pressure_mean", "visibility_mean", "wind_speed_10m_mean", "soil_moisture_0_to_100cm_mean", "soil_temperature_0_to_100cm_mean"],
 	}
 
-    response = requests.get(url, params=params, timeout=60)
-    response.raise_for_status()
-    daily = response.json()["daily"]
+	attempt = 0
+	r = None
 
-    return pd.DataFrame({
+	while attempt < max_retries:
+		attempt +=1
+		try:
+			r = requests.get(CONFIG["api"]["weather"]["url_archive"], params=params, timeout=(5, 30))
+			r.raise_for_status()
+			break
+
+		except requests.exceptions.Timeout:
+			logger.warning("Timeout (tentative %s/%s) pour %s;%s",attempt, max_retries, lat, lng)
+			time.sleep(10)
+
+	if r is None or not r.ok:
+		raise RuntimeError(f"Échec de récupération météo après {attempt} tentatives")
+	
+	daily = r.json()["daily"]
+
+	return pd.DataFrame({
 		"date": pd.to_datetime(daily["time"]),
 		"latitude": lat,
 		"longitude": lng,
@@ -81,3 +100,197 @@ def get_meteo (lng: str,
 		"soil_moisture_0_to_100cm_mean": daily["soil_moisture_0_to_100cm_mean"],
 		"soil_temperature_0_to_100cm_mean": daily["soil_temperature_0_to_100cm_mean"],
 	})
+
+
+def get_hubeau(first_url: str,
+                 params: str) -> pd.DataFrame:
+    data_page = []
+    next_url = first_url
+    headers = {"accept": "application/json"}
+
+    while next_url:
+        try:
+            r = requests.get(next_url, params=params, headers=headers, timeout=(5, 30))
+            r.raise_for_status()
+            print (r.url)
+
+        except requests.exceptions.Timeout:
+            print("Timeout, nouvelle tentative...")
+            time.sleep(2)
+            continue 
+
+        data = r.json()
+        data_page.extend(data["data"])
+        next_url = data.get("next")
+        params = None
+
+        time.sleep(1)
+
+    df = pd.DataFrame(data_page)
+    return df
+
+
+def fetch_weather_by_year(code_bss: str,
+                           lng: str,
+                           lat: str,
+                           end_date: str,
+                           failed_calls: list[dict],
+						   export_csv: bool = True) -> pd.DataFrame:
+    
+    start   = pd.to_datetime(CONFIG["api"]["weather"]["start_date"])
+    end     = pd.to_datetime(end_date)
+    frame   = []
+
+    for year in range(start.year, end.year + 1):
+        year_start = max(start, pd.Timestamp(year=year, month=1, day=1))
+        year_end = min(end, pd.Timestamp(year=year, month=12, day=31))
+        current_start = year_start.strftime("%Y-%m-%d")
+        current_end = year_end.strftime("%Y-%m-%d")
+
+        try:
+            df_year = get_weather(
+                lng,
+                lat,
+                current_start,
+                current_end
+            )
+            df_year["code_bss"] = code_bss
+
+            if export_csv == True: 
+                df_year.to_csv(Path(CONFIG["paths"]["data"]["external"] / "meteo_{code_bss.replace('/','')}_{pd.to_datetime(year_start).year}.csv"))
+
+            frame.append(df_year)
+            time.sleep(5)
+
+        except Exception as e:
+            print(f"Erreur station {code_bss}, année {year}: {e}")
+            
+            failed_calls.append({
+                "code_bss": code_bss,
+                "lng": lng,
+                "lat": lat,
+                "start_date": current_start,
+                "end_date": current_end,
+                "error": str(e),
+            })
+
+    if not frame:
+        return pd.DataFrame()
+
+    return pd.concat(frame, ignore_index=True)
+
+
+"""
+def fetch_meteo_historical():
+	failed_calls = [] 
+      	for end_date, lat, lng, code_bss in zip(df_station["date_fin_mesure"], 
+										df_station["latitude"], 
+										df_station["longitude"], 
+										df_station["code_bss"]):
+		frame.append(fetch_weather_by_year(code_bss,
+										lng,
+										lat,
+										end_date,
+										False))
+
+"""
+
+def merge_interim_data (df_piezometer: pd.DataFrame,
+                         df_weather: pd.DataFrame) -> pd.DataFrame:
+
+    df_piezometer = df_piezometer.copy()
+    df_piezometer["date_index"] = pd.to_datetime(df_piezometer["date_index"])
+
+    df_weather = df_weather.copy()
+    df_weather["date_index"] = pd.to_datetime(df_weather["date_index"])
+
+    merged = df_piezometer.merge(df_weather, on=["date_index", "code_bss"], how="left")
+
+    missing = merged["latitude"].isna().sum()
+    if missing > 0:
+        logger.warning("%d lignes sans correspondance gps fusion", missing)
+
+    return merged
+
+
+# ---------------------------- AWS ---------------------------
+def upload_file_to_s3(local_file: Path, bucket: str, key_prefix: str) -> None:
+    """
+    Persiste un fichier local dans le bucket S3 configuré, sous la clé :
+        {key_prefix}/{année}/{mois}/{nom}_{AAAAMMJJ}.csv
+    où {nom} est déduit du dernier segment de key_prefix (ex: "meteo" pour
+    key_prefix="external/meteo").
+    """
+    if not (os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY")):
+        logger.warning("Credentials AWS absents — upload S3 de %s ignoré.", local_file.name)
+        return
+
+    import boto3
+
+    now = pd.Timestamp.now()
+    name = Path(key_prefix).name
+    s3_key = f"{key_prefix}/{now:%Y}/{now:%m}/{name}_{now:%Y%m%d}.csv"
+
+    s3 = boto3.client("s3")
+    s3.upload_file(str(local_file), bucket, s3_key)
+    logger.info("Fichier persisté sur s3://%s/%s", bucket, s3_key)
+
+
+def save_raw_data(df: pd.DataFrame, output_path: Path, file_name: str) -> Path:
+    """
+    Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
+    (paths.s3)
+    """
+    output_path.mkdir(parents=True, exist_ok=True)
+    output_file = output_path / file_name
+    df.to_csv(output_file, index=False)
+
+    s3_cfg = CONFIG.get("s3")
+    if s3_cfg:
+        upload_file_to_s3(output_file, s3_cfg["bucket"], s3_cfg["prefixes"]["raw"])
+
+    return output_file
+
+
+def save_processed_data(df: pd.DataFrame, output_path: Path, file_name: str) -> Path:
+    """
+    Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
+    (paths.s3)
+    """
+    output_path.mkdir(parents=True, exist_ok=True)
+    output_file = output_path / file_name
+    df.to_csv(output_file, index=False)
+
+    s3_cfg = CONFIG.get("s3")
+    if s3_cfg:
+        upload_file_to_s3(output_file, s3_cfg["bucket"], s3_cfg["prefixes"]["processed"])
+
+    return output_file
+
+
+def save_interim_data(df: pd.DataFrame, output_path: Path, file_name: str) -> Path:
+    """
+    Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
+    (paths.s3)
+    """
+    output_path.mkdir(parents=True, exist_ok=True)
+    output_file = output_path / file_name
+    df.to_csv(output_file, index=False)
+
+    s3_cfg = CONFIG.get("s3")
+    if s3_cfg:
+        upload_file_to_s3(output_file, s3_cfg["bucket"], s3_cfg["prefixes"]["interim"])
+
+    return output_file
+
+# ---------------------------- RUN ---------------------------
+def main(): 
+    df_piezometer = pd.read_csv(CONFIG["paths"]["piezometer"]["interim_filename"])
+    df_weather = pd.read_csv(CONFIG["paths"]["weather"]["interim_filename"])
+    
+    df_merged = merge_interim_data(df_piezometer, df_weather)
+
+    output_file = save_raw_data(df_merged, CONFIG["paths"]["raw_filename"])
+
+if __name__ == "__main__":
+    main()
