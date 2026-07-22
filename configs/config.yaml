@@ -19,8 +19,12 @@ paths:
     external: "data/external"
   raw_filename: "dataset.csv"
   weather:
+    external_filename: "weather_data.csv"
     interim_filename: "weather_cleaned.csv"
+  station:
+    external_filename: "station_data.csv"
   piezometer:
+    external_filename: "piezometer_data.csv"
     interim_filename: "piezometer_cleaned.csv"
 
 s3:
