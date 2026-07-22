@@ -5,6 +5,10 @@
 # Import libraries
 from pathlib import Path
 import pandas as pd
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 def piezometer_dataset_cleaning(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -21,6 +25,8 @@ def piezometer_dataset_cleaning(df: pd.DataFrame) -> pd.DataFrame:
     
     # Changing the name of the column date (preparation for future merging)
     df = df.rename(columns={'date_mesure': 'date_index'})
-    
+
+    logger.info(f"Cleaning dataset piezometer ended!")
+
     # Export
     return df

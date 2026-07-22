@@ -18,6 +18,7 @@ import argparse
 
 from pathlib import Path
 from src.config import load_config
+from src.data.clean_dataset import piezometer_dataset_cleaning  #, weather_dataset_cleaning
 
 # --------------------------- LOGGING --------------------------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -163,8 +164,8 @@ def fetch_weather_by_year(code_bss: str,
             time.sleep(5)
 
         except Exception as e:
-            print(f"Erreur station {code_bss}, année {year}: {e}")
-            
+            logger.warning(f"Erreur station {code_bss}, année {year}: {e}")
+
             failed_calls.append({
                 "code_bss": code_bss,
                 "lng": lng,
@@ -202,11 +203,10 @@ def fetch_piezometer (df_station: pd.DataFrame,
             "size": 5000, 
             "code_bss" : code_bss
         }
-        df_cache = get_hubeau(CONFIG["api"]["water"]["url_piezometre"], params)
+        df_cache = get_hubeau(CONFIG["api"]["piezometer"]["url_piezometre"], params)
         frames.append(df_cache)
 
     df = pd.concat(frames, ignore_index=True)
-    df = df.rename(columns={"date_mesure": "date"})
 
     if save_csv:
         file = Path(CONFIG["paths"]["data"]["external"] / CONFIG["paths"]["piezometer"]["external_filename"])
@@ -215,8 +215,11 @@ def fetch_piezometer (df_station: pd.DataFrame,
 
 
 def fetch_weather (df_station: pd.DataFrame,
-                   save_csv: bool)-> pd.DataFrame:
+                   save_csv: bool,
+                   failed_calls: list[dict])-> pd.DataFrame:
     frames=[]
+    failed_calls=[]
+    
     for end_date, lat, lng, code_bss in zip(df_station["date_fin_mesure"], 
                                                 df_station["latitude"], 
                                                 df_station["longitude"], 
@@ -225,6 +228,7 @@ def fetch_weather (df_station: pd.DataFrame,
                                         lng,
                                         lat,
                                         end_date,
+                                        failed_calls,
                                         False))
 
     df = pd.concat(frames, ignore_index=True)
@@ -324,30 +328,31 @@ def save_interim_data(df: pd.DataFrame, output_path: Path, file_name: str) -> Pa
 # ---------------------------- RUN ---------------------------
 def main(): 
     parser = argparse.ArgumentParser(description="Prépare le dataset propre")
-    parser.add_argument(
-        "--skip-historical",
-        action="store_false",
-        help="Ne pas appeler l'API météo",
-    )
-    args = parser.parse_args()
+    parser.add_argument("--skip-historical",action="store_false",help="Ne pas appeler l'API météo")
+    parser.add_argument("--save-csv",action="store_true",help="Persiste les fichiers csv")
 
-    df_station = fetch_station(save_csv=False)
+    args            = parser.parse_args()
+    failed_calls    = []
+    df_station      = fetch_station(save_csv=args.save_csv)
     
     if not args.skip_historical:
         logger.info("Récupération historique météo/piezo")
-        df_weather = fetch_weather(df_station, save_csv=True)
-        df_piezometer = fetch_piezometer(df_station, save_csv=True)
+        df_weather = fetch_weather(df_station, save_csv=args.save_csv, failed_calls=failed_calls)
+        df_piezometer = fetch_piezometer(df_station, save_csv=args.save_csv)
     else:
         logger.info("Récupération forecast météo/piezo")
         # chargement des données historisés / voir persistance sur S3 (pas en local)
         df_weather      = pd.read_csv(Path(CONFIG["paths"]["data"]["external"])/CONFIG["paths"]["weather"]["external_filename"])
         df_piezometer   = pd.read_csv(Path(CONFIG["paths"]["data"]["external"])/CONFIG["paths"]["piezometer"]["external_filename"])
-        # prévoir d'interroger uniquement l'API de forecast sur les données manquantes
+        # TODO: prévoir d'interroger uniquement l'API de forecast sur les données manquantes
 
-    # df_weather = clean_weather_data(df_weather)
-    # df_piezometer = clean_piezometer_data(df_piezometer)
-    
-    df_merged = merge_data(df_piezometer, df_weather)
+    # clean datasets
+    #df_weather      = weather_dataset_cleaning(df_weather)
+    df_piezometer   = piezometer_dataset_cleaning(df_piezometer)
+
+    # merge datasets
+    df_merged       = merge_data(df_piezometer, df_weather)
+
     output_file = save_raw_data(df_merged, CONFIG["paths"]["raw_filename"])
 
 if __name__ == "__main__":
