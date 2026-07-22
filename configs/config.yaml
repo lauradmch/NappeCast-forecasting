@@ -1,5 +1,5 @@
 api:
-  water:
+  piezometer:
     provider: "hubeau"
     url_station: "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations"
     url_piezometre: "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/chroniques"
@@ -11,3 +11,22 @@ api:
     url_forecast: ""
     start_date: "2017-01-01"
     
+paths:
+  data:
+    raw: "data/raw"
+    interim: "data/interim"
+    processed: "data/processed"
+    external: "data/external"
+  raw_filename: "dataset.csv"
+  weather:
+    interim_filename: "weather_cleaned.csv"
+  piezometer:
+    interim_filename: "piezometer_cleaned.csv"
+
+s3:
+  bucket: "nappe-forecast"
+  prefixes:
+    processed: "data/processed"
+    interim: "data/interim"
+    raw: "data/raw"
+    external: "data/external"
