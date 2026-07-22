@@ -18,7 +18,7 @@ import argparse
 
 from pathlib import Path
 from src.config import load_config
-from src.data.clean_dataset import piezometer_dataset_cleaning  #, weather_dataset_cleaning
+from src.data.clean_dataset import piezometer_dataset_cleaning, weather_dataset_cleaning
 
 # --------------------------- LOGGING --------------------------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -246,11 +246,14 @@ def merge_data (df_piezometer: pd.DataFrame,
     df_weather = df_weather.copy()
     df_weather["date_index"] = pd.to_datetime(df_weather["date_index"])
 
-    merged = df_piezometer.merge(df_weather, on=["date_index", "code_bss"], how="left")
+    merged = df_piezometer.merge(df_weather, on=["date_index", "code_bss"], how="inner")
 
-    missing = merged["latitude"].isna().sum()
+    missing = merged["sunrise"].isna().sum()
     if missing > 0:
-        logger.warning("%d lignes sans correspondance gps fusion", missing)
+        mask = merged["sunrise"].isna()
+        print(merged[mask][["date_index","code_bss"]])
+
+        logger.warning("%d lignes sans correspondance météo", missing)
 
     return merged
 
@@ -347,13 +350,16 @@ def main():
         # TODO: prévoir d'interroger uniquement l'API de forecast sur les données manquantes
 
     # clean datasets
-    #df_weather      = weather_dataset_cleaning(df_weather)
+    df_weather      = weather_dataset_cleaning(df_weather)
     df_piezometer   = piezometer_dataset_cleaning(df_piezometer)
 
-    # merge datasets
+    # merge dataset
     df_merged       = merge_data(df_piezometer, df_weather)
 
-    output_file = save_raw_data(df_merged, CONFIG["paths"]["raw_filename"])
+    df_merged.to_csv(Path(CONFIG["paths"]["data"]["raw"]) / CONFIG["paths"]["raw_filename"])
+    
+
+    # output_file = save_raw_data(df_merged, CONFIG["paths"]["data"]["raw"], CONFIG["paths"]["raw_filename"])
 
 if __name__ == "__main__":
     main()
