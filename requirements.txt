@@ -18,3 +18,5 @@ python-dotenv
 retry_requests
 requests_cache
 openmeteo_requests
+pyyaml
+dotenv
