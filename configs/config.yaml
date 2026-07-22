@@ -1,14 +1,13 @@
 api:
-  piezometer:
+  water:
     provider: "hubeau"
-    url: "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations"
+    url_station: "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations"
+    url_piezometre: "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/chroniques"
     code_bss: 
-      - "09937X0135/P23B"
-      - "09934X0087/P18B"
-      - "10193X0151/P29B"
-      - "09938X0164/P12B"
-      - "10192X0095/P21B"
+      - "10906X0039/C2-1"
   weather:
     provider: "open-meteo"
-    url: "https://archive-api.open-meteo.com/v1/archive"
+    url_archive: "https://archive-api.open-meteo.com/v1/archive"
+    url_forecast: ""
+    start_date: "2017-01-01"
     
