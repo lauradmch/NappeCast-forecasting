@@ -8,7 +8,7 @@ import logging
 
 from pathlib import Path
 from src.config import load_config
-from src.data.helper import save_interim_data
+from src.helper import save_interim_data
 
 CONFIG = load_config()
 
