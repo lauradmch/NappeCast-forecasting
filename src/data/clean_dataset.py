@@ -5,16 +5,15 @@
 # Import libraries
 from pathlib import Path
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 
-def piezometer_dataset_cleaning(Path, file):
+def piezometer_dataset_cleaning(file):
     """
     Objectives of this function is to clean the piezometer dataset before merging with 
     weather dataset and EDA.
     """
     # Import of the dataset
-    input_path = Path("..") / 'data' / 'external' / file
+    base_dir = Path(__file__).resolve().parents[2]
+    input_path = base_dir / 'data' / 'external' / file
     df = pd.read_csv(input_path)
     
     # Dropping columns
@@ -25,8 +24,10 @@ def piezometer_dataset_cleaning(Path, file):
     df_drop = df.drop(columns=columns_to_drop)
     
     # Changing the name of the column date (preparation for future merging)
-    df_drop.rename(columns={'date_mesure': 'date_index'})
+    df_drop = df_drop.rename(columns={'date_mesure': 'date_index'})
     
     # Saving the dataset after cleaning
-    output_path = Path('..') / 'data' / 'interim' / 'piezometer_cleaned.csv'
-    df_drop.to_csv(output_path)
+    output_path = base_dir / 'data' / 'interim' / 'piezometer_cleaned.csv'
+    df_drop.to_csv(output_path, index=False)
+
+piezometer_dataset_cleaning(file='piezometre_data.csv')
