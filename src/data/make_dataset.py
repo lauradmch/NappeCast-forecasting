@@ -255,6 +255,8 @@ def merge_data (df_piezometer: pd.DataFrame,
 
         logger.warning("%d lignes sans correspondance météo", missing)
 
+    logger.info(f"Merging dataset ended!")
+
     return merged
 
 
@@ -356,10 +358,10 @@ def main():
     # merge dataset
     df_merged       = merge_data(df_piezometer, df_weather)
 
-    df_merged.to_csv(Path(CONFIG["paths"]["data"]["raw"]) / CONFIG["paths"]["raw_filename"])
+    # df_merged.to_csv(Path(CONFIG["paths"]["data"]["raw"]) / CONFIG["paths"]["raw_filename"])
     
 
-    # output_file = save_raw_data(df_merged, CONFIG["paths"]["data"]["raw"], CONFIG["paths"]["raw_filename"])
+    output_file = save_raw_data(df_merged, CONFIG["paths"]["data"]["raw"], CONFIG["paths"]["raw_filename"])
 
 if __name__ == "__main__":
     main()

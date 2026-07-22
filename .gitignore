@@ -21,6 +21,10 @@ env/
 *.ipynb_checkpoints
 
 # --- Données ---
+data/raw/*
+data/interim/*
+data/processed/*
+data/external/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
