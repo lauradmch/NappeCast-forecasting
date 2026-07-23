@@ -1,0 +1,6 @@
+boto3==1.28.85
+pandas==2.3.3
+gunicorn==21.2.0
+streamlit==1.28.1
+scikit-learn==1.2.2
+plotly==5.17.0

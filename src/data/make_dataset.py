@@ -19,7 +19,7 @@ import argparse
 from pathlib import Path
 from src.config import load_config
 from src.data.clean_dataset import piezometer_dataset_cleaning, weather_dataset_cleaning
-from src.data.helper import save_raw_data
+from src.helper import save_raw_data
 
 # --------------------------- LOGGING --------------------------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
