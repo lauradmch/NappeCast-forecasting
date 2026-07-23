@@ -12,19 +12,24 @@ services:
     restart: unless-stopped
 
   streamlit:
-    build: ./src/app
+    build:
+      context: .
+      dockerfile: src/app/Dockerfile
     expose:
-      - "8501"          # plus de "ports:", accessible uniquement via caddy en interne
+      - "8501"
+    environment:
+      - API_URL=http://api:8000    # "api" = nom du service, résolu automatiquement
     volumes:
       - streamlit_data:/home/app/data
     restart: unless-stopped
 
   api:
-    build: ./src/api
+    build:
+      context: .                    # racine du projet, englobe tout src/
+      dockerfile: src/api/Dockerfile
     expose:
       - "8000"
     restart: unless-stopped
-
 volumes:
   streamlit_data:
   caddy_data:

@@ -17,15 +17,15 @@ paths:
     interim: "data/interim"
     processed: "data/processed"
     external: "data/external"
-  merged_filename: "dataset_merged.csv" 
+  merged_filename: "dataset_merged" 
   weather:
-    raw_filename: "weather_raw.csv"
-    interim_filename: "weather_cleaned.csv"
+    raw_filename: "weather_raw"
+    interim_filename: "weather_cleaned"
   station:
-    raw_filename: "station_raw.csv"
+    raw_filename: "station_raw"
   piezometer:
-    raw_filename: "piezometer_raw.csv"
-    interim_filename: "piezometer_cleaned.csv"
+    raw_filename: "piezometer_raw"
+    interim_filename: "piezometer_cleaned"
 
 s3:
   bucket: "nappecast"

@@ -3,22 +3,35 @@ API de test (acces databse, acces inférence ...)
 """
 
 import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 import pandas as pd 
 import boto3
 import urllib 
+import logging
 
-app = FastAPI()
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+from src.api.schemas import (
+    BatchObservations,
+    BatchPredictionResponse,
+    HealthResponse,
+    ModelInfoResponse,
+    Observation,
+    PredictionResponse,
+)
 
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
-if __name__=="__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+app = FastAPI(
+    title="NappCast",
+    description="Sert les prédictions du modèle entraîné (source configurable : local, S3, MLflow).",
+    version="1.0.0"
+)
+
+@app.get("/health", response_model=HealthResponse, tags=["monitoring"])
+def health():
+    """Vérifie que l'API répond — ne garantit pas que le modèle est chargé (voir /model/info)."""
+    return {"status": "ok"}
