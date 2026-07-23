@@ -28,7 +28,7 @@ paths:
     interim_filename: "piezometer_cleaned.csv"
 
 s3:
-  bucket: "nappe-forecast"
+  bucket: "nappecast"
   prefixes:
     processed: "data/processed"
     interim: "data/interim"
