@@ -4,15 +4,20 @@
 
 # Import libraries
 import streamlit as st
+import requests
 import pandas as pd
-from pathlib import Path
 import plotly.express as px 
 import plotly.graph_objects as go
 import boto3
-from io import StringIO
-from dotenv import load_dotenv
 import os
 import yaml
+
+from io import StringIO
+from pathlib import Path
+from src.config import load_config
+
+CONFIG = load_config()
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 #--------------------- 🧠 Configuration section ---------------------
 # st.set_page_config() defines metadata and layout of your Streamlit app.
@@ -23,9 +28,7 @@ st.set_page_config(
     layout='wide'
 )
 
-
 #--------------------- 🎨 App header ---------------------
-
 st.title("Welcome in our application to deep dive into the nappecast.")
 
 st.markdown("""
@@ -42,42 +45,33 @@ st.markdown("""
 
 #--------------------- 📦 Load data ---------------------
 
-# @st.cache_data is a Streamlit decorator that caches function results.
-# When you reload the app, data is read from the cache instead of reloading from the source.
+
 
 # Connexion to S3 server on AWS
-env_path = Path(__file__).resolve().parents[2] / ".env"
-load_dotenv(dotenv_path=env_path)
-
-aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
-aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-aws_region = os.getenv("AWS_REGION")
-
-base_dir = Path(__file__).resolve().parents[2]
-config_path = base_dir / "configs" / "config.yaml"
-
-with open(config_path, "r") as f:
-    config = yaml.safe_load(f)
-
-bucket_name = config["s3"]["bucket"]
-
-s3 = boto3.client(
-    "s3",
-    aws_access_key_id=aws_access_key,
-    aws_secret_access_key=aws_secret_key,
-    region_name=aws_region
-)
+s3 = boto3.client("s3")
+bucket_name = CONFIG["s3"]["bucket"]
+s3 = boto3.client("s3")
 
 @st.cache_data
 def load_data():
-    response = s3.get_object(Bucket=bucket_name, Key="data/raw/2026/07/dataset.csv_20260722.csv")
-    df = pd.read_csv(StringIO(response["Body"].read().decode("utf-8")))
+    key = Path(CONFIG["paths"]["data"]["interim"]) / f"{CONFIG['paths']['merged_filename']}.csv"
+    obj = s3.get_object(Bucket=CONFIG["s3"]["bucket"], Key=str(key))
+    df = pd.read_csv(StringIO(obj["Body"].read().decode("utf-8")))
     return df
-
 data = load_data()
 
-#--------------------- 🧭 Sidebar menu ---------------------
+#--------------------- test API ---------------------
+if st.button("Vérifier la connexion à l'API"):
+    try:
+        r = requests.get(f"{API_URL}/health", timeout=5)
+        r.raise_for_status()
+        st.success("API disponible ✅")
+    except Exception as e:
+        st.error(f"API indisponible : {e}")
 
+            
+
+#--------------------- 🧭 Sidebar menu ---------------------
 # st.sidebar gives you access to a dedicated sidebar panel.
 # Useful for navigation menus, filters, or extra info.
 st.sidebar.header('Purpose & Objectives')

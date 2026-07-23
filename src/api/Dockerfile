@@ -2,13 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /home/app
 
-COPY requirements.txt .
+COPY src/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-RUN mkdir -p static   # <-- garantit l'existence du dossier même s'il est vide dans le sync S3
+COPY src/ ./src/
+COPY configs/ ./configs/
 
 ENV PORT=8000
 EXPOSE $PORT
 
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+CMD uvicorn src.api.main:app --host 0.0.0.0 --port $PORT

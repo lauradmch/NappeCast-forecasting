@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 def piezometer_dataset_cleaning(df: pd.DataFrame,
-						      save_csv: bool = True) -> pd.DataFrame:
+						      save_file: bool = True) -> pd.DataFrame:
     """
     Objectives of this function is to clean the piezometer dataset before merging with 
     weather dataset and EDA.
@@ -35,14 +35,14 @@ def piezometer_dataset_cleaning(df: pd.DataFrame,
     logger.info(f"Cleaning dataset piezometer ended!")
 
     # Export
-    if save_csv :
-        save_interim_data(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["piezometer"]["interim_filename"])
+    if save_file :
+        save_interim_data(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["piezometer"]["interim_filename"], False)
 
     return df
 
 
 def weather_dataset_cleaning(df: pd.DataFrame,
-						     save_csv: bool = True) -> pd.DataFrame:
+						     save_file: bool = True) -> pd.DataFrame:
     """
     Objectives of this function is to clean the weather dataset from Open-Meteo before merging with 
     piezometer dataset and EDA.
@@ -65,7 +65,7 @@ def weather_dataset_cleaning(df: pd.DataFrame,
     logger.info(f"Cleaning dataset weather ended!")
 
     # Export
-    if save_csv:
-        save_interim_data(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["weather"]["interim_filename"])
+    if save_file:
+        save_interim_data(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["weather"]["interim_filename"], False)
 
     return df
