@@ -23,11 +23,11 @@ def piezometer_dataset_cleaning(df: pd.DataFrame,
     """
     df = df.copy()
     # Dropping columns
-    df["date_mesure"] = pd.to_datetime(df["date_mesure"])
-    columns_to_drop = ['code_nature_mesure', 'nom_nature_mesure', 'Unnamed: 0', 'urn_bss', 
+    df["date_mesure"] = pd.to_datetime(df["date_mesure"])   
+    columns_to_drop = ['code_nature_mesure', 'nom_nature_mesure',  'urn_bss', 
                        'timestamp_mesure', 'statut', 'qualification', 'code_continuite', 
                        'nom_continuite', 'code_producteur', 'profondeur_nappe']
-    df = df.drop(columns=columns_to_drop)
+    df = df.drop(columns=columns_to_drop)  #'Unnamed: 0',
     
     # Changing the name of the column date (preparation for future merging)
     df = df.rename(columns={'date_mesure': 'date_index'})
@@ -49,10 +49,11 @@ def weather_dataset_cleaning(df: pd.DataFrame,
     """
     df = df.copy()
     # drop columns with too many Nan, index, localization
-    df = df.drop(columns=["Unnamed: 0", "precipitation_probability_max", "uv_index_clear_sky_max", 
+    df = df.drop(columns=["precipitation_probability_max", "uv_index_clear_sky_max", 
                           "uv_index_max", "visibility_mean", "showers_sum", "snowfall_sum", 
                           "snowfall_water_equivalent_sum"])
-    df = df.rename(columns={"date":"date_index"})
+    df = df.rename(columns={"date":"date_index"}) # Unnamed: 0", 
+    
     # drop columns that are too corrolated
     cols_to_drop = [
         'et0_fao_evapotranspiration_sum', 'relative_humidity_2m_mean', 'rain_sum', 'surface_pressure_mean',

@@ -1,0 +1,3 @@
+nappecast.mapflowing.com {
+    reverse_proxy streamlit:8501
+}

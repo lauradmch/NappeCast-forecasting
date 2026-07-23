@@ -1,20 +1,30 @@
 services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    depends_on:
+      - streamlit
+    restart: unless-stopped
+
   streamlit:
     build: ./src/app
-    ports:
-      - "8501:8501"
+    expose:
+      - "8501"          # plus de "ports:", accessible uniquement via caddy en interne
     volumes:
       - streamlit_data:/home/app/data
-    environment:
-      - PORT=8501
     restart: unless-stopped
+
   api:
     build: ./src/api
     expose:
       - "8000"
-    environment:
-      - PORT=8000
     restart: unless-stopped
 
 volumes:
   streamlit_data:
+  caddy_data:

@@ -4,3 +4,5 @@ gunicorn==21.2.0
 streamlit==1.28.1
 scikit-learn==1.2.2
 plotly==5.17.0
+python-dotenv==1.2.2
+PyYAML==6.0.2

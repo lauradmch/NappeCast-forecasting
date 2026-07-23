@@ -191,7 +191,7 @@ def fetch_station (save_csv: bool)-> pd.DataFrame:
     df = get_hubeau(CONFIG["api"]["piezometer"]["url_station"], params)
     df = df.rename(columns={"x": "longitude", "y": "latitude"})
     if save_csv:
-        file = Path(CONFIG["paths"]["data"]["external"]) / CONFIG["paths"]["station"]["external_filename"]
+        file = Path(CONFIG["paths"]["data"]["raw"]) / CONFIG["paths"]["station"]["raw_filename"]
         df.to_csv(file)
     return df
 
@@ -210,7 +210,7 @@ def fetch_piezometer (df_station: pd.DataFrame,
     df = pd.concat(frames, ignore_index=True)
 
     if save_csv:
-        file = Path(CONFIG["paths"]["data"]["external"]) / CONFIG["paths"]["piezometer"]["external_filename"]
+        file = Path(CONFIG["paths"]["data"]["raw"]) / CONFIG["paths"]["piezometer"]["raw_filename"]
         df.to_csv(file)
     return df
 
@@ -234,8 +234,10 @@ def fetch_weather (df_station: pd.DataFrame,
 
     df = pd.concat(frames, ignore_index=True)
     if save_csv:
-        file = Path(CONFIG["paths"]["data"]["external"])/ CONFIG["paths"]["weather"]["external_filename"]
+        file = Path(CONFIG["paths"]["data"]["raw"])/ CONFIG["paths"]["weather"]["raw_filename"]
         df.to_csv(file)
+
+    return df
   
 
 def merge_data (df_piezometer: pd.DataFrame,
@@ -247,7 +249,7 @@ def merge_data (df_piezometer: pd.DataFrame,
     df_weather = df_weather.copy()
     df_weather["date_index"] = pd.to_datetime(df_weather["date_index"])
 
-    merged = df_piezometer.merge(df_weather, on=["date_index", "code_bss"], how="inner")
+    merged = df_weather.merge(df_piezometer, on=["date_index", "code_bss"], how="inner")
 
     missing = merged["sunrise"].isna().sum()
     if missing > 0:
@@ -272,13 +274,18 @@ def main()-> str:
 
     if not args.skip_historical:
         logger.info("Mode récupération historique actif")
-        df_weather = fetch_weather(df_station, save_csv=args.save_csv, failed_calls=failed_calls)
-        df_piezometer = fetch_piezometer(df_station, save_csv=args.save_csv)
+        df_weather      = fetch_weather(df_station, save_csv=args.save_csv, failed_calls=failed_calls)
+        df_piezometer   = fetch_piezometer(df_station, save_csv=args.save_csv)
     else:
         logger.info("Mode récupération forecast actif")
+
+
         # chargement des données historisés / voir persistance sur S3 (pas en local)
-        df_weather      = pd.read_csv(Path(CONFIG["paths"]["data"]["external"])/CONFIG["paths"]["weather"]["external_filename"])
-        df_piezometer   = pd.read_csv(Path(CONFIG["paths"]["data"]["external"])/CONFIG["paths"]["piezometer"]["external_filename"])
+        # teste la présence sur S3
+
+
+        df_weather      = pd.read_csv(Path(CONFIG["paths"]["data"]["raw"])/CONFIG["paths"]["weather"]["raw_filename"])
+        df_piezometer   = pd.read_csv(Path(CONFIG["paths"]["data"]["raw"])/CONFIG["paths"]["piezometer"]["raw_filename"])
         # TODO: prévoir d'interroger uniquement l'API de forecast sur les données manquantes
 
     # clean datasets
@@ -287,7 +294,7 @@ def main()-> str:
 
     # merge datasets
     df_merged       = merge_data(df_piezometer, df_weather)
-    output_file     = save_raw_data(df_merged, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["raw_filename"])
+    output_file     = save_raw_data(df_merged, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["merged_filename"])
 
     return output_file
 

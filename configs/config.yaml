@@ -17,14 +17,14 @@ paths:
     interim: "data/interim"
     processed: "data/processed"
     external: "data/external"
-  raw_filename: "dataset.csv"
+  merged_filename: "dataset_merged.csv" 
   weather:
-    external_filename: "weather_data.csv"
+    raw_filename: "weather_raw.csv"
     interim_filename: "weather_cleaned.csv"
   station:
-    external_filename: "station_data.csv"
+    raw_filename: "station_raw.csv"
   piezometer:
-    external_filename: "piezometer_data.csv"
+    raw_filename: "piezometer_raw.csv"
     interim_filename: "piezometer_cleaned.csv"
 
 s3:

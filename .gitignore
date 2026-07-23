@@ -64,3 +64,6 @@ Thumbs.db
 # --- DVC (si utilisé) ---
 .dvc/cache
 .dvc/tmp
+
+# --- AWS
+nappecast-ec2-key.pem
