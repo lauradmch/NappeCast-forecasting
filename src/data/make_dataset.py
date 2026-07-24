@@ -18,7 +18,7 @@ from pathlib import Path
 from src.config import load_config
 from src.data.clean_dataset import piezometer_dataset_cleaning, weather_dataset_cleaning
 
-from src.helper.aws import load_historical_in_s3
+from src.helper.aws import load_historical_in_s3,save_raw_data_to_s3, save_interim_data_to_s3
 from src.helper.data import get_last_dates, build_start_dates
 
 # ---------------------------- LOGGING --------------------------------
@@ -196,7 +196,7 @@ def fetch_station (save_file: bool)-> pd.DataFrame:
     df = df.rename(columns={"x": "longitude", "y": "latitude"})
 
     if save_file:
-        save_raw_data(df, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["station"]["raw_filename"], False)
+        save_raw_data_to_s3(df, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["station"]["raw_filename"], False)
                 
     return df
 
@@ -215,7 +215,7 @@ def fetch_piezometer (df_station: pd.DataFrame,
     df = pd.concat(frames, ignore_index=True)
 
     if save_file:
-        save_raw_data(df, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["piezometer"]["raw_filename"], False)
+        save_raw_data_to_s3(df, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["piezometer"]["raw_filename"], False)
         
     return df
 
@@ -239,7 +239,7 @@ def fetch_weather (df_station: pd.DataFrame,
 
     df = pd.concat(frames, ignore_index=True)
     if save_file:
-        save_raw_data(df, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["weather"]["raw_filename"], False)
+        save_raw_data_to_s3(df, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["weather"]["raw_filename"], False)
       
     return df
   
@@ -266,7 +266,7 @@ def merge_data (df_piezometer: pd.DataFrame,
     logger.info(f"Merging dataset ended!")
 
     if save_file:
-        save_interim_data(merged, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["merged_filename"], False)
+        save_interim_data_to_s3(merged, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["merged_filename"], False)
 
     return merged
 
