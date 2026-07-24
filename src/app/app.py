@@ -17,6 +17,7 @@ from pathlib import Path
 from src.config import load_config
 
 CONFIG = load_config()
+
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 #--------------------- 🧠 Configuration section ---------------------
@@ -50,7 +51,6 @@ st.markdown("""
 # Connexion to S3 server on AWS
 s3 = boto3.client("s3")
 bucket_name = CONFIG["s3"]["bucket"]
-s3 = boto3.client("s3")
 
 @st.cache_data
 def load_data():

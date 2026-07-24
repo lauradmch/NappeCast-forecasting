@@ -18,6 +18,7 @@ paths:
     processed: "data/processed"
     external: "data/external"
   merged_filename: "dataset_merged" 
+  processed_filename: "dataset_processed"
   weather:
     raw_filename: "weather_raw"
     interim_filename: "weather_cleaned"
@@ -26,7 +27,9 @@ paths:
   piezometer:
     raw_filename: "piezometer_raw"
     interim_filename: "piezometer_cleaned"
-
+  model_filename: "model.joblib"
+  predictions_filename: "reports/predictions"
+  
 s3:
   bucket: "nappecast"
   prefixes:
@@ -34,3 +37,25 @@ s3:
     interim: "data/interim"
     raw: "data/raw"
     external: "data/external"
+
+model:
+  type: ""
+  params:
+    random_state: 42
+  features:
+    numeric:
+      - "numeric_1"
+    categorical:
+      - "categorical_1"
+
+training:
+  test_size: 0.2
+  random_state: 42
+  cv_folds: 5
+  scoring: "accuracy"
+
+mlflow:
+  experiment_name: "nappecast"
+  default_tracking_uri: "https://ronan-guillou-mlflow-test.hf.space/"
+  registered_model_name: "nappecast_model"
+  model_alias: "champion"  # Alias assigné à la dernière version entraînée (ex: "champion") depuis la version 2.9

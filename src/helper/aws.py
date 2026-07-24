@@ -1,23 +1,33 @@
 #---------------------------------------------------------------------------------
-# All useful shared functions
+# All useful shared functions for aws
 #---------------------------------------------------------------------------------
 
-# Import libraries
-from pathlib import Path
-from src.config import load_config
-
+# ---------------------------- LIBRARY ---------------------------
 import pandas as pd
 import logging
 import os
+import boto3
+import io
 
-CONFIG = load_config()
+from pathlib import Path
+from src.config import load_config
+from botocore.exceptions import ClientError
+
+# ---------------------------- LOGGING --------------------------------
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
+# ---------------------------- VARIABLES ---------------------------
+
+CONFIG = load_config()
+
 # ---------------------------- AWS ---------------------------
 
-def upload_file_to_s3(local_file: Path, bucket: str, key_prefix: str, with_timestamp: bool=True) -> None:
+def upload_file_to_s3(local_file: Path, 
+                      bucket: str, 
+                      key_prefix: str, 
+                      with_timestamp: bool=True) -> None:
     """
     Persiste un fichier local dans le bucket S3 configuré, sous la clé :
         {key_prefix}/{année}/{mois}/{nom}_{AAAAMMJJ}.csv
@@ -43,7 +53,10 @@ def upload_file_to_s3(local_file: Path, bucket: str, key_prefix: str, with_times
     logger.info("Fichier persisté sur s3://%s/%s", bucket, s3_key)
 
 
-def save_raw_data(df: pd.DataFrame, output_path: Path, file_name: str, with_timestamp: bool=True) -> Path:
+def save_raw_data_to_s3(df: pd.DataFrame, 
+                  output_path: Path, 
+                  file_name: str, 
+                  with_timestamp: bool=True) -> Path:
     """
     Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
     (paths.s3)
@@ -59,7 +72,10 @@ def save_raw_data(df: pd.DataFrame, output_path: Path, file_name: str, with_time
     return output_file
 
 
-def save_interim_data(df: pd.DataFrame, output_path: Path, file_name: str, with_timestamp: bool=True) -> Path:
+def save_interim_data_to_s3(df: pd.DataFrame, 
+                      output_path: Path, 
+                      file_name: str, 
+                      with_timestamp: bool=True) -> Path:
     """
     Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
     (paths.s3)
@@ -75,7 +91,10 @@ def save_interim_data(df: pd.DataFrame, output_path: Path, file_name: str, with_
     return output_file
 
 
-def save_processed_data(df: pd.DataFrame, output_path: Path, file_name: str, with_timestamp: bool=True) -> Path:
+def save_processed_data_to_s3(df: pd.DataFrame, 
+                        output_path: Path, 
+                        file_name: str, 
+                        with_timestamp: bool=True) -> Path:
     """
     Sauvegarde le dataset nettoyé au format CSV, puis le persiste sur S3
     (paths.s3)
@@ -90,20 +109,49 @@ def save_processed_data(df: pd.DataFrame, output_path: Path, file_name: str, wit
 
     return output_file
 
- 
-def load_historique_s3(path_weather_s3: str, path_piezometer_s3: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Charge les historiques weather et piezometre depuis S3.
-    Leve une erreur si l'un des deux fichiers n'existe pas du tout."""
+
+def file_exists_in_s3(s3_client, 
+                   bucket: str, 
+                   filename: str) -> bool:
     try:
-        df_weather_hist = pd.read_csv(path_weather_s3)
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"Historique weather introuvable sur S3 : {path_weather_s3}") from e
+        s3_client.head_object(Bucket=bucket, Key=filename)
+        return True
+    
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
+            return False
+        raise
+
  
-    try:
-        df_piezo_hist = pd.read_csv(path_piezometer_s3)
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"Historique piezometre introuvable sur S3 : {path_piezometer_s3}") from e
+def read_csv_in_s3(s3_client, 
+                     bucket: str, 
+                     filename: str) -> pd.DataFrame:
+    """
+    Lit un fichier sur le bucket s3
+    """
+    obj = s3_client.get_object(Bucket=bucket, Key=filename)
+    return pd.read_csv(io.BytesIO(obj["Body"].read()))
+
+ 
+def load_historical_in_s3(bucket: str, 
+                       weather_raw_filename: str, 
+                       piezometer_raw_filename: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+
+    """
+    Charge les historiques weather et piezometre depuis S3.
+    """
+    s3 = boto3.client("s3")
+ 
+    if not s3_file_exists(s3, bucket, weather_raw_filename):
+        raise FileNotFoundError(f"Historique weather introuvable sur S3 : s3://{bucket}/{weather_raw_filename}")
+    if not s3_file_exists(s3, bucket, piezometer_raw_filename):
+        raise FileNotFoundError(f"Historique piezometre introuvable sur S3 : s3://{bucket}/{piezometer_raw_filename}")
+ 
+    df_weather_hist = s3_read_csv(s3, bucket, weather_raw_filename)
+    df_piezo_hist = s3_read_csv(s3, bucket, piezometer_raw_filename)
  
     return df_weather_hist, df_piezo_hist
  
+ 
 
+ 

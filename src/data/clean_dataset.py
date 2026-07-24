@@ -8,12 +8,18 @@ import logging
 
 from pathlib import Path
 from src.config import load_config
-from src.helper import save_interim_data
+from src.helper.aws import save_interim_data_to_s3
 
-CONFIG = load_config()
+# ---------------------------- LOGGING --------------------------------
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+# ---------------------------- VARIABLES ---------------------------
+
+CONFIG = load_config()
+
+# ---------------------------- GET DATA ---------------------------
 
 def piezometer_dataset_cleaning(df: pd.DataFrame,
 						      save_file: bool = True) -> pd.DataFrame:
@@ -36,7 +42,7 @@ def piezometer_dataset_cleaning(df: pd.DataFrame,
 
     # Export
     if save_file :
-        save_interim_data(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["piezometer"]["interim_filename"], False)
+        save_interim_data_to_s3(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["piezometer"]["interim_filename"], False)
 
     return df
 
@@ -66,6 +72,6 @@ def weather_dataset_cleaning(df: pd.DataFrame,
 
     # Export
     if save_file:
-        save_interim_data(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["weather"]["interim_filename"], False)
+        save_interim_data_to_s3(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["weather"]["interim_filename"], False)
 
     return df

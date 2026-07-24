@@ -5,8 +5,6 @@ Transforme les données brutes (data/raw) en données prêtes à l'emploi
 pour le feature engineering / l'entraînement (data/processed).
 
 """
-# --------------------------- XXXXXXX --------------------------------
-
 # --------------------------- LIBRARY --------------------------------
 import logging
 import requests
@@ -19,15 +17,21 @@ import argparse
 from pathlib import Path
 from src.config import load_config
 from src.data.clean_dataset import piezometer_dataset_cleaning, weather_dataset_cleaning
-from src.helper import save_raw_data, save_interim_data
 
-# --------------------------- LOGGING --------------------------------
+from src.helper.aws import load_historical_in_s3
+from src.helper.data import get_last_dates, build_start_dates
+
+# ---------------------------- LOGGING --------------------------------
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+# ---------------------------- VARIABLES ---------------------------
+
 CONFIG = load_config()
 
-
 # ---------------------------- API EXTERNE ---------------------------
+
 def get_weather (lng: str,
                     lat: str,
 					start_date: str,
@@ -266,6 +270,36 @@ def merge_data (df_piezometer: pd.DataFrame,
 
     return merged
 
+# ----------------------- MODE FORECAST ------------------------
+
+def get_forecast(df_station: pd.DataFrame,
+                 path_weather_s3: str, 
+                 path_piezometer_s3: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+ 
+    # récupération de l'historique sur S3
+    df_weather_hist, df_piezometer_hist = load_historical_in_s3(path_weather_s3, path_piezometer_s3)
+
+    # dernieres dates connues par station
+    last_weather_dates      = get_last_dates(df_weather_hist, "code_bss", "date_mesure")
+    last_piezometer_dates   = get_last_dates(df_piezometer_hist, "code_bss", "date_mesure")
+
+    # dates de reprise
+    start_dates_weather     = build_start_dates(df_station, last_weather_dates, CONFIG["start_date"])
+    start_dates_piezometer  = build_start_dates(df_station, last_piezometer_dates, CONFIG["start_date"])
+
+    # fetch uniquement sur la periode recente
+    failed_calls: list[dict] = []
+
+    df_weather_new          = fetch_weather_recent(df_station, start_dates_weather, failed_calls)
+    df_piezometer_new       = fetch_piezometer_recent(df_station, start_dates_piezometer)
+ 
+    # 5. fusion avec l'historique
+    df_weather = merge_with_history(df_weather_hist, df_weather_new, "code_bss", "date_mesure")
+    df_piezo = merge_with_history(df_piezo_hist, df_piezo_new, "code_bss", "date_mesure")
+ 
+    return df_weather, df_piezo
+
+
 # ---------------------------- RUN ---------------------------
 def main()-> str: 
     parser = argparse.ArgumentParser(description="Prépare le dataset propre")
@@ -282,12 +316,8 @@ def main()-> str:
         df_piezometer   = fetch_piezometer(df_station, save_file=args.save_csv)
     else:
         logger.info("Mode récupération forecast actif")
-        # chargement des données historisés / voir persistance sur S3 (pas en local)
-        # teste la présence sur S3
-        df_weather      = pd.read_csv(Path(CONFIG["paths"]["data"]["raw"])/f"{CONFIG["paths"]["weather"]["raw_filename"]}.csv")
-        df_piezometer   = pd.read_csv(Path(CONFIG["paths"]["data"]["raw"])/f"{CONFIG["paths"]["piezometer"]["raw_filename"]}.csv")
-        # TODO: prévoir d'interroger uniquement l'API de forecast sur les données manquantes
 
+        
     # clean datasets
     df_weather      = weather_dataset_cleaning(df_weather, save_file=args.save_csv)
     df_piezometer   = piezometer_dataset_cleaning(df_piezometer,save_file=args.save_csv)

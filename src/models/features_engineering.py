@@ -34,22 +34,26 @@ class FeatureEngineer(BaseEstimator, TransformerMixin):
     """
 
     def fit(self, X, y=None):
-        # Stateless ici (aucune statistique apprise), mais fit() doit exister
-        # et renvoyer self pour être compatible avec l'API sklearn.
         return self
 
     def transform(self, X):
+        """
+        Transformer sklearn custom qui crée de nouvelles colonnes à partir des
+        colonnes brutes (déjà nettoyées structurellement, mais pouvant encore
+        contenir des NaN -> ces NaN se propagent naturellement dans les nouvelles
+        colonnes et seront traités par l'imputer du ColumnTransformer en aval).
+
+        Placé dans le pipeline (et non dans make_dataset.py) car :
+        - une future feature pourrait dépendre d'une statistique du train
+        (ex: écart à la moyenne du groupe) et devrait alors être fit sur
+        train uniquement ;
+        - on veut que la même logique s'applique automatiquement à toute
+        nouvelle donnée passée à `predict()`, sans étape manuelle séparée.
+        """
+
         X = X.copy()
 
+        # le feature ingeneering ici !
 
-        
+
         return X
-
-    def get_feature_names_out(self, input_features=None):
-        base = list(input_features) if input_features is not None else []
-        return base + [
-            "revenu_par_annee_anciennete",
-            "revenu_par_age",
-            "tranche_age",
-            "categorie_region",
-        ]
