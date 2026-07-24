@@ -312,12 +312,11 @@ def main()-> str:
 
     if not args.skip_historical:
         logger.info("Mode récupération historique actif")
-        df_weather      = fetch_weather(df_station, save_file=args.save_csv, failed_calls=failed_calls)
-        df_piezometer   = fetch_piezometer(df_station, save_file=args.save_csv)
+        df_weather   = fetch_weather(df_station, save_file=args.save_csv, failed_calls=failed_calls)
+        df_piezometer= fetch_piezometer(df_station, save_file=args.save_csv)
     else:
         logger.info("Mode récupération forecast actif")
 
-        
     # clean datasets
     df_weather      = weather_dataset_cleaning(df_weather, save_file=args.save_csv)
     df_piezometer   = piezometer_dataset_cleaning(df_piezometer,save_file=args.save_csv)

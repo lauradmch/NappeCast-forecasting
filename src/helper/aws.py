@@ -129,7 +129,7 @@ def read_csv_in_s3(s3_client,
     """
     Lit un fichier sur le bucket s3
     """
-    obj = s3_client.get_object(Bucket=bucket, Key=filename)
+    obj = s3_client.get_object(Bucket=bucket, Key=str(filename))
     return pd.read_csv(io.BytesIO(obj["Body"].read()))
 
  
@@ -151,7 +151,3 @@ def load_historical_in_s3(bucket: str,
     df_piezo_hist = s3_read_csv(s3, bucket, piezometer_raw_filename)
  
     return df_weather_hist, df_piezo_hist
- 
- 
-
- 
