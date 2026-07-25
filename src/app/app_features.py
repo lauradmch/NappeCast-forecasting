@@ -126,3 +126,80 @@ fig.update_layout(
     uirevision="constant"
 )
 st.plotly_chart(fig, use_container_width=True)
+
+
+"""
+Features tab content
+
+"""
+
+
+# --------------------------- LIBRARY --------------------------------
+import ast
+import pandas as pd
+import streamlit as st
+import requests
+import seaborn as sns
+import matplotlib.pyplot as plt
+import plotly.express as px 
+
+# ---------------------------- VARIABLES ---------------------------
+
+
+# ---------------------------- METHODES ---------------------------
+
+def render_features(df_cleaned = pd.DataFrame) -> None:
+    st.markdown("""
+                This page provides an overview of the exploratory data analysis (EDA) performed on the weather dataset during the project.
+                \nIt presents the main characteristics and distributions of the weather features, as well as the data cleaning process, 
+                including the analysis of feature correlations using a correlation matrix.
+                \nFinally, it presents the new features created during the feature engineering process and their contribution to the 
+                dataset.
+                """)
+    
+    st.header("""
+            Exploratory Data Analysis performed on the weather dataset:
+            """)
+    st.markdown("""
+                The main objectives of this step were to investigate:
+                - **Data types:** identify the types of data present in the `weather` dataset after data collection
+                - **Missing values:** assess and handle missing values
+                - **Feature correlations:** evaluate correlations between features and determine whether any treatment was required
+                - **Feature engineering:** create new features based on domain expertise
+                """)
+    
+    # Loading the weather_raw.csv
+    
+    
+    # Correlation of the numerical features
+    st.subheader("Weather Dataset After Data Collection")
+    st.markdown("""
+                This section presents the weather dataset after collection and cleaning for features with 100% of NaN and non-informative data.
+                """)
+    corr = df.corr(method='pearson', numeric_only=True)
+    plt.figure(figsize=(20, 20))
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", vmin=-1, vmax=1, square=True)
+    plt.title("Correlation matrix")
+    plt.tight_layout()
+    st.pyplot(plt)
+    st.caption("""
+               The correlation matrix highlights strong relationships between several weather features, 
+               which were considered during the data cleaning and feature selection processes.
+               """)
+    
+    st.write("""
+             Regarding those results, we put a threshold at 70% to select the features to drop during the analysis.
+             """)
+    
+    cols_to_drop = ['et0_fao_evapotranspiration_sum', 'relative_humidity_2m_mean', 'rain_sum', 'surface_pressure_mean',
+                    'dew_point_2m_mean', 'precipitation_hours', 'sunshine_duration', 'weather_code', 'apparent_temperature_min', 
+                    'apparent_temperature_max', "temperature_2m_min", "temperature_2m_max"]
+    df_reduced = df.drop(columns=cols_to_drop, errors='ignore')
+    
+    # Correlation of the numerical features after dropping columns with >= 70% of correlation
+    corr = df_reduced.corr(method='pearson', numeric_only=True)
+    plt.figure(figsize=(20, 20))
+    sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True)
+    plt.title('Correlation matrix')
+    plt.tight_layout()
+    st.pyplot(plt)
