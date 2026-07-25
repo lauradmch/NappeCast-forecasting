@@ -69,7 +69,7 @@ def add_standardized_features(df, scales=1):
 def featuring_dataset(df: pd.DataFrame, 
                       save_file: bool = True) -> pd.DataFrame:
     """
-    xxx
+    Feature engineering performed on clean merged dataset (after merging piezometer_cleaned.csv & weather_cleaned.csv datasets)
     """
     df = df.copy()
     
