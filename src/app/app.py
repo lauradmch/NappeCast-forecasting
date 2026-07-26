@@ -2,7 +2,7 @@
 # Streamlit interface
 #---------------------------------------------------------------------------------
 
-#--------------------- LIBRARY ---------------------
+# Import libraries
 import streamlit as st
 import requests
 import pandas as pd
@@ -16,94 +16,167 @@ from io import StringIO
 from pathlib import Path
 from src.config import load_config
 
-from src.app.app_sidebar import render_sidebar
-from src.app.app_identity import render_identity
-from src.app.app_predictions import render_predictions
-
-
-from src.app.app_doc import render_documentation
-from src.helper.aws import read_csv_in_s3
-
-#--------------------- VARIABLES ---------------------
 CONFIG = load_config()
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 
-API_URL                 = os.getenv("API_URL", "http://localhost:8000")
-CODE_BSS                = ",".join(CONFIG["api"]["piezometer"]["code_bss"])
-STATION_RAW_FILENAME    = Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['station']['raw_filename']}.csv"
-DATASET_FILENAME        = Path(CONFIG["paths"]["data"]["interim"]) / f"{CONFIG['paths']['merged_filename']}.csv"
-S3_SESSION              = boto3.client("s3")
-BUCKET_NAME             = CONFIG["s3"]["bucket"]
-
-#---------------------  Configuration section ---------------------
+#--------------------- 🧠 Configuration section ---------------------
+# st.set_page_config() defines metadata and layout of your Streamlit app.
+# You can set the page title, the emoji/icon, and whether the layout is "wide" or "centered".
 st.set_page_config(
     page_title='NappeCast',
     page_icon= '💧',
     layout='wide'
 )
 
+#--------------------- 🎨 App header ---------------------
+st.title("Welcome in our application to deep dive into the nappecast.")
+
 st.markdown("""
-    <style>
-    .block-container {
-        padding-top: 1.5rem !important;
-    }
-    [data-testid="stSidebarHeader"] {
-        min-height: 0 !important;
-        padding: 0.5rem 1rem 0 1rem !important;
-    }
-    [data-testid="stSidebarUserContent"] {
-        padding-top: 0.5rem !important;
-    }
-    [data-testid="stDecoration"] {
-        display: none;
-    }
+            This application was developped by Laura D., Ronan G. 
+            and Adrien C. during there AI Fullstack bootcamp with Jedha's school.
+            The context and objectives of this project are summarized in the 'Purpose & 
+            Objectives' section.
+            \nWe hope you will have a lovely experience going through our work!         
+            """)
 
-    /* --- Onglets en barre de menu --- */
-    [data-testid="stTabs"] div[data-baseweb="tab-list"] {
-        gap: 2rem;
-        justify-content: center;
-        border-bottom: 1px solid #e0e0e0;
-    }
-    [data-testid="stTabs"] button[data-baseweb="tab"] {
-    height: 4rem !important;
-    padding: 0 1.5rem !important;
-    }
-    [data-testid="stTabs"] button[data-baseweb="tab"] [data-testid="stMarkdownContainer"] p {
-        font-size: 1.75rem !important;
-        font-weight: 700 !important;
-    }
-    [data-testid="stTabs"] button[aria-selected="true"] {
-        border-bottom: 3px solid #FF4B4B;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# url = "https://rainea.fr/wp-content/uploads/2025/07/iStock-514985574.jpg"
+# st.image(url, caption= 'nappecast', use_container_width=True)
 
-#---------------------  Load data ---------------------
+
+#--------------------- 📦 Load data ---------------------
+
+
+
+# Connexion to S3 server on AWS
+s3 = boto3.client("s3")
+bucket_name = CONFIG["s3"]["bucket"]
+s3 = boto3.client("s3")
+
 @st.cache_data
-def load_data()-> tuple[pd.DataFrame, pd.DataFrame]:
-    df_station = read_csv_in_s3(S3_SESSION, BUCKET_NAME, STATION_RAW_FILENAME)
-    df_dataset = read_csv_in_s3(S3_SESSION, BUCKET_NAME, DATASET_FILENAME)
-    return df_station, df_dataset
+def load_data():
+    key = Path(CONFIG["paths"]["data"]["interim"]) / f"{CONFIG['paths']['merged_filename']}.csv"
+    obj = s3.get_object(Bucket=CONFIG["s3"]["bucket"], Key=str(key))
+    df = pd.read_csv(StringIO(obj["Body"].read().decode("utf-8")))
+    return df
+data = load_data()
 
-df_station, df_processed = load_data()
+#--------------------- test API ---------------------
+if st.button("Vérifier la connexion à l'API"):
+    try:
+        r = requests.get(f"{API_URL}/health", timeout=5)
+        r.raise_for_status()
+        st.success("API disponible ✅")
+    except Exception as e:
+        st.error(f"API indisponible : {e}")
 
-# --------------------- Sidebar menu ---------------------
+            
 
-render_sidebar(df_station, CODE_BSS, API_URL)
+#--------------------- 🧭 Sidebar menu ---------------------
+# st.sidebar gives you access to a dedicated sidebar panel.
+# Useful for navigation menus, filters, or extra info.
+st.sidebar.header('Purpose & Objectives')
+st.sidebar.markdown("""
+                    * [Purpose](#Purpose)
+                    * [Objectives](#Objectives)
+                    * [Data sources](#Sources)
+                    * [GitHub Repository](https://github.com/lauradmch/NappeCast-forecasting)
+                    """)
 
-#---------------------  Onglets ---------------------
+st.sidebar.header('Exploratory Data Analysis')
+st.sidebar.markdown("""
+                    * [Visualization](#Visualization)
+                    """)
 
-tab_apercu, tab_feature, tab_analyse, tab_prediction, tab_documentation = st.tabs(["Identity", "Features", "Analyse", "Prédiction", "Documentations"])
-with tab_apercu:
-    render_identity (df_processed)
 
-with tab_feature:
-    st.write("Corrélations, features...")
 
-with tab_analyse:
-    st.write("Statistiques approfondies et analyse du SPLI")
+st.sidebar.header('Nappecast level prediction')
+st.sidebar.markdown("""
+                    * [Machine Learning models](#ML-models)
+                    * [Deep Learning models](#DL-models)
+                    """)
 
-with tab_prediction:
-    render_predictions()
-    
-with tab_documentation:
-    render_documentation()
+
+#--------------------- Purpose & Objectives ---------------------
+
+st.header("Purpose & Objectives")
+st.markdown("<a id='Purpose'></a>", unsafe_allow_html=True)
+st.subheader("Purpose")
+
+
+
+
+
+st.markdown("<a id='Objectives'></a>", unsafe_allow_html=True)
+st.subheader("Objectives")
+
+
+
+
+
+st.markdown("<a id='Sources'></a>", unsafe_allow_html=True)
+st.subheader("Data sources")
+
+
+
+
+
+#--------------------- Exploratory Data Analysis ---------------------
+
+st.header("Exploratory Data Analysis")
+st.markdown("<a id='Visualization'></a>", unsafe_allow_html=True)
+st.subheader("Visualization")
+
+# Figure 1
+fig = px.line(
+    data,
+    x="date_index",
+    y="niveau_nappe_eau",
+    title="Évolution du niveau de la nappe",
+    labels={
+        "date_index": "Date",
+        "niveau_nappe_eau": "Niveau nappe (m)"
+    }
+)
+st.plotly_chart(fig, use_container_width=True)
+
+# Figure 2
+fig = px.scatter_mapbox(
+    data,
+    lat="latitude",
+    lon="longitude",
+    hover_name="nom_producteur",
+    zoom=6,
+    title="Localisation des piézomètres"
+)
+fig.update_layout(
+    mapbox_style="open-street-map",
+    uirevision="constant"
+)
+st.plotly_chart(fig, use_container_width=True)
+
+
+
+
+st.header("Nappecast level prediction")
+st.markdown("<a id='ML-models'></a>", unsafe_allow_html=True)
+st.subheader("Machine Learning models")
+
+
+
+
+
+st.markdown("<a id='DL-models'></a>", unsafe_allow_html=True)
+st.subheader("Deep Learning models")
+
+
+
+# H1 st.title("Titre principal")
+# H2 st.header("Section")                  
+# H3 st.subheader("Sous-section")          
+# Méthode générique st.write("Du texte ou n'importe quoi") 
+# Markdown complet st.markdown("**Gras**, *italique*")   
+# Petit texte gris st.caption("Légende discrète")        
+# Bloc de code coloré st.code("print('Hello')", language="python")  
+# Ligne horizontale st.divider()                          
+
+
