@@ -66,8 +66,7 @@ def add_standardized_features(df, scales=1):
 
 
 
-def featuring_dataset(df: pd.DataFrame, 
-                      save_file: bool = True) -> pd.DataFrame:
+def featuring_dataset(df: pd.DataFrame) -> pd.DataFrame:
     """
     Feature engineering performed on clean merged dataset (after merging piezometer_cleaned.csv & weather_cleaned.csv datasets)
     """
@@ -79,10 +78,10 @@ def featuring_dataset(df: pd.DataFrame,
     
     # Treatment of duplicated rows (kept only one reading per day)
     df = df[~df.index.duplicated(keep="first")]
-    
-    # PART FOR GAPS !!!!!!####################
-    # PART FOR GAPS !!!!!!####################
-    # PART FOR GAPS !!!!!!####################
+
+    # Interpolate missing dates to keep daily frequency
+    cols = df.select_dtypes(include=['number']).columns
+    df[cols] = df[cols].sort_index().asfreq("D").interpolate()
     
     # Computation of cumulative precipitation (during the last 30-90 days)
     df['P_cum_30d'] = df['precipitation_sum'].rolling(window=30).sum()
@@ -104,17 +103,18 @@ def featuring_dataset(df: pd.DataFrame,
     df['Temperature_mean_30d']   = df['Temperature_mean_30d'].fillna(df['Temperature_mean_30d'].dropna().iloc[0])
     df['Temperature_mean_90d']  = df['Temperature_mean_90d'].fillna(df['Temperature_mean_90d'].dropna().iloc[0])
 
-    # SPLI
-    df = add_standardized_features(df)
+
+
+def feature_engineering(df: pd.DataFrame, save_file: bool = True) -> pd.DataFrame:
+
+    df = df.copy()
+    df = featuring_dataset(df)
+    df = add_standardized_features (df)
     df = df.drop(columns="Peff")
     # Filling the NaN
     std_cols = df.filter(regex=r"^S.*I$").columns
-    df[std_cols] = df[std_cols].fillna(0.0)
-
-
-
-
-####### check for the file name and folder destination ###################
+    df[std_cols] = df[std_cols].fillna(df[std_cols].mean())
+    ####### check for the file name and folder destination ###################
     # Export
     if save_file:
         save_interim_data(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["weather"]["interim_filename"], False)
