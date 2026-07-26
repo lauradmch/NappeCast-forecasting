@@ -147,7 +147,7 @@ def cross_corr(driver: pd.Series, response: pd.Series, maxlag=12) -> dict:
     return {L: a.corr(b.shift(-L)) for L in range(maxlag + 1)}
 
  # --------------------------------------------------------------------------- #
-# Data loading — robust: repo paths, app-folder, then uploader
+# Data loading (robust: repo paths, app-folder, then uploader)
 # --------------------------------------------------------------------------- #
 HERE = Path(__file__).resolve().parent
  
