@@ -247,20 +247,16 @@ def fetch_weather (df_station: pd.DataFrame,
 def merge_data (df_piezometer: pd.DataFrame,
                 df_weather: pd.DataFrame,
                 save_file: bool) -> pd.DataFrame:
-
+    
     df_piezometer = df_piezometer.copy()
-    df_piezometer["date_index"] = pd.to_datetime(df_piezometer["date_index"])
-
     df_weather = df_weather.copy()
-    df_weather["date_index"] = pd.to_datetime(df_weather["date_index"])
 
-    merged = df_weather.merge(df_piezometer, on=["date_index", "code_bss"], how="inner")
-
+    merged = df_weather.merge(df_piezometer, on=["date_index", "code_bss"], how="left") # left pour toujours avoir une date, ne pas mettre inner
+    merged = merged.set_index('date_index', drop=False)
+    
     missing = merged["sunrise"].isna().sum()
     if missing > 0:
         mask = merged["sunrise"].isna()
-        print(merged[mask][["date_index","code_bss"]])
-
         logger.warning("%d lignes sans correspondance météo", missing)
 
     logger.info(f"Merging dataset ended!")
@@ -316,6 +312,8 @@ def main()-> str:
         df_piezometer= fetch_piezometer(df_station, save_file=args.save_csv)
     else:
         logger.info("Mode récupération forecast actif")
+        df_weather      = pd.read_csv(Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['weather']['raw_filename']}.csv")
+        df_piezometer   = pd.read_csv(Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['piezometer']['raw_filename']}.csv")
 
     # clean datasets
     df_weather      = weather_dataset_cleaning(df_weather, save_file=args.save_csv)

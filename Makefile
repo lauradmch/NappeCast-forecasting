@@ -9,3 +9,6 @@ data:
 data_histo:
 	python -m src.data.make_dataset --save-csv
 
+data_featuring:
+	python -m src.data.feat_dataset --save-csv
+

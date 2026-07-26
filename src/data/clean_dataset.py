@@ -27,30 +27,21 @@ def piezometer_dataset_cleaning(df: pd.DataFrame,
     Objectives of this function is to clean the piezometer dataset before merging with 
     weather dataset and EDA.
     """
-    df = pd.DataFrame(df)
+
     df = df.copy()
-    
-    # Setting 'date_index' as index of the dataframe
     df["date_index"] = pd.to_datetime(df["date_mesure"])  
-    df = df.set_index("date_index")
-    df.index = pd.to_datetime(df.index)
-    
+
     # Dropping columns
     columns_to_drop = ['code_nature_mesure', 'nom_nature_mesure',  'urn_bss', 
                        'timestamp_mesure', 'statut', 'qualification', 'code_continuite', 
-                       'nom_continuite', 'code_producteur', 'profondeur_nappe', 'date_mesure', 'Unnamed: 0']
-    
-    df = df.drop(columns=columns_to_drop, errors='ignore')
-    
-    # Changing the name of the column date (preparation for future merging)
-    df = df.rename(columns={'date_mesure': 'date_index'})
-
-    logger.info(f"Cleaning dataset piezometer ended!")
+                       'nom_continuite', 'code_producteur', 'profondeur_nappe', 'date_mesure']
+    df = df.drop(columns=columns_to_drop)
 
     # Export
     if save_file :
         save_interim_data_to_s3(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["piezometer"]["interim_filename"], False)
 
+    logger.info(f"Cleaning dataset piezometer ended!")
     return df
 
 
@@ -60,32 +51,25 @@ def weather_dataset_cleaning(df: pd.DataFrame,
     Objectives of this function is to clean the weather dataset from Open-Meteo before merging with 
     piezometer dataset and EDA.
     """
-    df = pd.DataFrame(df)
-    df = df.copy()
-        
-    # Setting 'date_index' as index of the dataframe
-    df["date_index"] = pd.to_datetime(df["date_mesure"])  
-    df = df.set_index("date_index")
-    df.index = pd.to_datetime(df.index)
+    df = df.copy() 
+    df["date_index"] = pd.to_datetime(df["date"])  
     
     # drop columns with too many Nan, index, localization
     df = df.drop(columns=["precipitation_probability_max", "uv_index_clear_sky_max", 
-                          "uv_index_max", "visibility_mean", "showers_sum", "snowfall_sum", 
-                          "snowfall_water_equivalent_sum", 'Unnamed: 0'], errors='ignore')
-    df = df.rename(columns={"date":"date_index"}) # Unnamed: 0", 
-    
+                          "uv_index_max", "visibility_mean", "showers_sum", "snowfall_sum", "date",
+                          "snowfall_water_equivalent_sum"])
+
     # drop columns that are too corrolated
     cols_to_drop = [
         'et0_fao_evapotranspiration_sum', 'relative_humidity_2m_mean', 'rain_sum', 'surface_pressure_mean',
         'dew_point_2m_mean', 'precipitation_hours', 'sunshine_duration',
         'weather_code', 'apparent_temperature_min', 'apparent_temperature_max', "temperature_2m_min"
     ]
-    df = df.drop(columns=cols_to_drop, errors='ignore')
-
-    logger.info(f"Cleaning dataset weather ended!")
+    df = df.drop(columns=cols_to_drop)
 
     # Export
     if save_file:
         save_interim_data_to_s3(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["weather"]["interim_filename"], False)
 
+    logger.info(f"Cleaning dataset weather ended!")
     return df

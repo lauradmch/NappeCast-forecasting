@@ -32,7 +32,7 @@ API_URL                 = os.getenv("API_URL", "http://localhost:8000")
 CODE_BSS                = ",".join(CONFIG["api"]["piezometer"]["code_bss"])
 STATION_RAW_FILENAME    = Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['station']['raw_filename']}.csv"
 INTERIM_FILENAME        = Path(CONFIG["paths"]["data"]["interim"]) / f"{CONFIG['paths']['interim_filename']}.csv"
-PROCESSED_FILENAME       = Path(CONFIG["paths"]["data"]["processed"]) / f"{CONFIG['paths']['processed_filename']}.csv"
+PROCESSED_FILENAME      = Path(CONFIG["paths"]["data"]["processed"]) / f"{CONFIG['paths']['processed_filename']}.csv"
 
 S3_SESSION              = boto3.client("s3")
 BUCKET_NAME             = CONFIG["s3"]["bucket"]
@@ -114,7 +114,7 @@ render_sidebar(df_station, CODE_BSS, API_URL)
 
 #---------------------  Onglets ---------------------
 
-tab_apercu, tab_feature, tab_analyse, tab_prediction, tab_documentation = st.tabs(["Identity", "Features", "Analyse", "Prédiction", "Documentations"])
+tab_apercu, tab_feature, tab_analyse, tab_prediction, tab_documentation = st.tabs(["Identity", "Features", "Analyse", "Prédictions", "Documentations"])
 with tab_apercu:
     render_identity (df_interim)
 

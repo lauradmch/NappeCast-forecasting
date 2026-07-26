@@ -129,6 +129,8 @@ def read_csv_in_s3(s3_client,
     """
     Lit un fichier sur le bucket s3
     """
+
+    logger.info(f"Lecture du fichier S3 {filename} dans le bucket {bucket}")
     obj = s3_client.get_object(Bucket=bucket, Key=str(filename))
     return pd.read_csv(io.BytesIO(obj["Body"].read()))
 

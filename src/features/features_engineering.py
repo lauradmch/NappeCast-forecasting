@@ -7,9 +7,12 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import logging
+
+
 from src.config import load_config
-from src.helper import save_interim_data
+from src.helper.aws import save_processed_data_to_s3
 from scipy.stats import norm
+
 
 CONFIG = load_config()
 
@@ -18,7 +21,11 @@ logger = logging.getLogger(__name__)
 
 
 
-def standardize_index(series, scale=1, agg="mean", freq="MS"):
+def standardize_index(series: pd.Series, 
+                      scale=1, 
+                      agg: str="mean", 
+                      freq: str="MS")-> pd.Series:
+    
     """Monthly standardized index via Gringorten plotting position + inverse-normal.
     Returns a monthly Series ~ N(0,1)."""
     m = series.resample(freq).agg(agg)                 # 1) daily -> monthly
@@ -30,7 +37,8 @@ def standardize_index(series, scale=1, agg="mean", freq="MS"):
     return pd.Series(norm.ppf(p), index=m.index, name=f"{series.name}_s{scale}")
 
 
-def add_standardized_features(df, scales=1):
+def add_standardized_features(df: pd.DataFrame, 
+                              scales: list[int] = [1]) -> pd.DataFrame:
     """Add SPLI + companion standardized indices (monthly, N(0,1)) as DAILY columns.
     Each monthly index value is forward-filled across the days of that month."""
 
@@ -61,9 +69,9 @@ def add_standardized_features(df, scales=1):
     # Broadcast monthly -> daily: align each day to its month start, then map
     month_key = df.index.to_period("M").to_timestamp()        # each daily row -> its 1st-of-month
     daily = panel.reindex(month_key).set_index(df.index)      # ffill happens implicitly via reindex-on-month
+
+    logger.info(f"add_standardized_features terminé !")
     return df.join(daily)
-
-
 
 
 def featuring_dataset(df: pd.DataFrame) -> pd.DataFrame:
@@ -103,20 +111,22 @@ def featuring_dataset(df: pd.DataFrame) -> pd.DataFrame:
     df['Temperature_mean_30d']   = df['Temperature_mean_30d'].fillna(df['Temperature_mean_30d'].dropna().iloc[0])
     df['Temperature_mean_90d']  = df['Temperature_mean_90d'].fillna(df['Temperature_mean_90d'].dropna().iloc[0])
 
+    logger.info(f"featuring_dataset terminé !")
+    return df
 
-
-def feature_engineering(df: pd.DataFrame, save_file: bool = True) -> pd.DataFrame:
+def feature_engineering(df: pd.DataFrame, 
+                        save_file: bool = True) -> pd.DataFrame:
 
     df = df.copy()
     df = featuring_dataset(df)
     df = add_standardized_features (df)
     df = df.drop(columns="Peff")
+
     # Filling the NaN
     std_cols = df.filter(regex=r"^S.*I$").columns
     df[std_cols] = df[std_cols].fillna(df[std_cols].mean())
-    ####### check for the file name and folder destination ###################
-    # Export
+
     if save_file:
-        save_interim_data(df, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["weather"]["interim_filename"], False)
+        save_processed_data_to_s3(df, Path(CONFIG["paths"]["data"]["processed"]), CONFIG["paths"]["processed_filename"], False)
 
     return df
