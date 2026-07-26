@@ -140,14 +140,14 @@ def load_historical_in_s3(bucket: str,
     """
     Charge les historiques weather et piezometre depuis S3.
     """
-    s3 = boto3.client("s3")
- 
-    if not s3_file_exists(s3, bucket, weather_raw_filename):
+    s3_cfg = CONFIG.get("s3")
+
+    if not file_exists_in_s3(s3_cfg["bucket"], bucket, weather_raw_filename):
         raise FileNotFoundError(f"Historique weather introuvable sur S3 : s3://{bucket}/{weather_raw_filename}")
-    if not s3_file_exists(s3, bucket, piezometer_raw_filename):
+    if not file_exists_in_s3(s3_cfg["bucket"], bucket, piezometer_raw_filename):
         raise FileNotFoundError(f"Historique piezometre introuvable sur S3 : s3://{bucket}/{piezometer_raw_filename}")
  
-    df_weather_hist = s3_read_csv(s3, bucket, weather_raw_filename)
-    df_piezo_hist = s3_read_csv(s3, bucket, piezometer_raw_filename)
+    df_weather_hist = read_csv_in_s3(s3_cfg["bucket"], bucket, weather_raw_filename)
+    df_piezo_hist = read_csv_in_s3(s3_cfg["bucket"], bucket, piezometer_raw_filename)
  
     return df_weather_hist, df_piezo_hist
