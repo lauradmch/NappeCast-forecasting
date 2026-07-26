@@ -97,7 +97,7 @@ def monthly(series: pd.Series) -> pd.Series:
     return series.resample("MS").mean().dropna()
  
  
-def characterize_events(series, threshold=-1.0, direction="below", min_gap=1, pooling=True):
+def characterize_events(series, threshold=-1.5, direction="below", min_gap=1, pooling=True):
     """Run-theory drought detection with inter-event pooling (extreme_events cell 12).
     Runs on the SPLI series that is already in the dataset — this is event
     *analysis*, not index computation."""
