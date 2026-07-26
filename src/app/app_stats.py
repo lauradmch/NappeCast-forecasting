@@ -118,74 +118,6 @@ def cross_corr(driver: pd.Series, response: pd.Series, maxlag=12) -> dict:
     a, b = driver.loc[common], response.loc[common]
     return {L: a.corr(b.shift(-L)) for L in range(maxlag + 1)}
 
- # --------------------------------------------------------------------------- #
-# Data loading (robust: repo paths, app-folder, then uploader)
-# --------------------------------------------------------------------------- #
-HERE = Path(__file__).resolve().parent
- 
- 
-def get_config():
-    """Load the project config.
-    Tries src.config.load_config(), then a config.yaml near the repo root."""
-    try:
-        from src.config import load_config  # project helper (as in the notebooks)
-        return load_config()
-    except Exception:
-        try:
-            import yaml
-            for p in [HERE / "config.yaml", HERE.parent / "config.yaml",
-                      HERE / "config" / "config.yaml",
-                      HERE.parent / "config" / "config.yaml"]:
-                if p.exists():
-                    with open(p) as f:
-                        return yaml.safe_load(f)
-        except Exception:
-            pass
-    return None
- 
- 
-def config_data_path(config):
-    """Build the dataset path as in the pipeline:
-        Path(CONFIG['paths']['data']['interim']) / f"{CONFIG['paths']['dataset_merged_featured_adc']}.csv"
-    Relative paths are resolved against the app folder."""
-    if not config:
-        return None
-    try:
-        interim = Path(config["paths"]["data"]["interim"])
-        stem = config["paths"]["dataset_merged_featured_adc"]
-        p = interim / f"{stem}.csv"
-        return p if p.is_absolute() else (HERE / p).resolve()
-    except Exception:
-        return None
- 
- 
-@st.cache_data(show_spinner=False)
-def load_csv(path_or_buffer) -> pd.DataFrame:
-    df = pd.read_csv(path_or_buffer).set_index("date_index")
-    df.index = pd.to_datetime(df.index)
-    return df.sort_index()
- 
- 
-def get_dataframe():
-    """Load the merged/featured dataset from CONFIG; uploader as fallback."""
-    st.sidebar.markdown("### 📂 Data source")
-    up = st.sidebar.file_uploader("Upload dataset CSV (overrides config)", type=["csv"])
-    if up is not None:
-        st.sidebar.success("Using uploaded file.")
-        return load_csv(up)
- 
-    config = get_config()
-    data_path = config_data_path(config)
-    if data_path is not None and Path(data_path).exists():
-        st.sidebar.success(f"Loaded from config: {Path(data_path).name}")
-        return load_csv(data_path)
-    if data_path is not None:
-        st.sidebar.error(f"Config path not found:\n`{data_path}`")
-    else:
-        st.sidebar.warning("No config found — upload a CSV to continue.")
-    return None
- 
-
 # --------------------------------------------------------------------------- #
 # Chart builders
 # --------------------------------------------------------------------------- #
@@ -301,7 +233,7 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
                      gridcolor=C_GRID, range=[-0.3, maxlag + 0.3])
     fig.update_yaxes(title="Pearson correlation r", gridcolor=C_GRID)
     return fig, best_txt
- 
+
 
 def render_stats(df_processed: pd.DataFrame):
     st.markdown(
@@ -428,19 +360,3 @@ def render_stats(df_processed: pd.DataFrame):
     st.caption("NappeCast · Demo Day")
 
 
-
-
-
-
-
-
-
-
-def render_stats(df_processed = pd.DataFrame) -> None:
-    st.markdown("""
-                This page provides an overview of the exploratory data analysis (EDA) performed on the weather dataset during the project.
-                \nIt presents the main characteristics and distributions of the weather features, as well as the data cleaning process, 
-                including the analysis of feature correlations using a correlation matrix.
-                \nFinally, it presents the new features created during the feature engineering process and their contribution to the 
-                dataset.
-                """)
