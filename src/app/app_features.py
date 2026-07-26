@@ -46,7 +46,7 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
     st.markdown("""
                 This section presents the weather dataset after collection and cleaning for features with 100% of NaN and non-informative data.
                 """)
-    corr = df.corr(method='pearson', numeric_only=True)
+    corr = df_cleaned.corr(method='pearson', numeric_only=True)
     fig, ax = plt.subplots(figsize=(20, 20))
     sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
     ax.set_title('Correlation matrix between features before removal of correlated features')
@@ -64,7 +64,7 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
     cols_to_drop = ['et0_fao_evapotranspiration_sum', 'relative_humidity_2m_mean', 'rain_sum', 'surface_pressure_mean',
                     'dew_point_2m_mean', 'precipitation_hours', 'sunshine_duration', 'weather_code', 'apparent_temperature_min', 
                     'apparent_temperature_max', "temperature_2m_min", "temperature_2m_max"]
-    df_reduced = df.drop(columns=cols_to_drop, errors='ignore')
+    df_reduced = df_cleaned.drop(columns=cols_to_drop, errors='ignore')
     
     
     # Correlation of the numerical features after dropping columns with >= 70% of correlation
@@ -87,9 +87,9 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 Each feature is plotted against the water table level (niveau_nappe_eau) to visually assess
                 potential relationships or correlations.
                 """)
-    col = st.selectbox('Select a column', [c for c in df.columns if c != 'niveau_nappe_eau'])
+    col = st.selectbox('Select a column', [c for c in df_reduced.columns if c != 'niveau_nappe_eau'])
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.scatter(df[col].dropna(), df['niveau_nappe_eau'].dropna(), alpha=0.5)
+    ax.scatter(df_reduced[col].dropna(), df_reduced['niveau_nappe_eau'].dropna(), alpha=0.5)
     ax.set_title(f'{col} vs niveau_nappe_eau')
     ax.set_xlabel(col)
     ax.set_ylabel('niveau_nappe_eau')
