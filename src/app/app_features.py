@@ -127,7 +127,13 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-
+#############################################################################################################
+#############################################################################################################
+#############################################################################################################
+#############################################################################################################
+#############################################################################################################
+#############################################################################################################
+#############################################################################################################
 """
 Features tab content
 
@@ -136,6 +142,8 @@ Features tab content
 
 # --------------------------- LIBRARY --------------------------------
 import ast
+from pathlib import Path
+from src.config import load_config
 import pandas as pd
 import streamlit as st
 import requests
@@ -143,7 +151,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.express as px 
 
-# ---------------------------- VARIABLES ---------------------------
+# ---------------------------- LOADING DATA ---------------------------
 
 
 # ---------------------------- METHODES ---------------------------
@@ -167,8 +175,20 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 - **Feature correlations:** evaluate correlations between features and determine whether any treatment was required
                 - **Feature engineering:** create new features based on domain expertise
                 """)
-    
-    # Loading the weather_raw.csv
+    # Exploration of the different features against the 'niveau_nappe_eau' column:
+    st.markdown("""
+                Explore the raw features of the dataset by selecting a column from the dropdown menu.
+                Each feature is plotted against the water table level (niveau_nappe_eau) to visually assess
+                potential relationships or correlations before any cleaning or transformation was applied.
+                """)
+    col = st.selectbox('Select a column', [c for c in df.columns if c != 'niveau_nappe_eau'])
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.scatter(df[col].dropna(), df['niveau_nappe_eau'].dropna(), alpha=0.5)
+    ax.set_title(f'{col} vs niveau_nappe_eau')
+    ax.set_xlabel(col)
+    ax.set_ylabel('niveau_nappe_eau')
+    plt.tight_layout()
+    st.pyplot(fig)  
     
     
     # Correlation of the numerical features
@@ -177,15 +197,15 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 This section presents the weather dataset after collection and cleaning for features with 100% of NaN and non-informative data.
                 """)
     corr = df.corr(method='pearson', numeric_only=True)
-    plt.figure(figsize=(20, 20))
-    sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", vmin=-1, vmax=1, square=True)
-    plt.title("Correlation matrix")
+    fig, ax = plt.subplots(figsize=(20, 20))
+    sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
+    ax.set_title('Correlation matrix between features before removal of correlated features')
     plt.tight_layout()
-    st.pyplot(plt)
+    st.pyplot(fig)
     st.caption("""
-               The correlation matrix highlights strong relationships between several weather features, 
-               which were considered during the data cleaning and feature selection processes.
-               """)
+           The correlation matrix highlights strong relationships between several weather features, 
+           which were considered during the data cleaning and feature selection processes.
+           """)
     
     st.write("""
              Regarding those results, we put a threshold at 70% to select the features to drop during the analysis.
@@ -196,10 +216,16 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                     'apparent_temperature_max', "temperature_2m_min", "temperature_2m_max"]
     df_reduced = df.drop(columns=cols_to_drop, errors='ignore')
     
+    
     # Correlation of the numerical features after dropping columns with >= 70% of correlation
     corr = df_reduced.corr(method='pearson', numeric_only=True)
-    plt.figure(figsize=(20, 20))
-    sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True)
-    plt.title('Correlation matrix')
+    fig, ax = plt.subplots(figsize=(20, 20))
+    sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
+    ax.set_title('Correlation matrix between features after removal of correlated features')
     plt.tight_layout()
-    st.pyplot(plt)
+    st.pyplot(fig)
+    st.caption("""
+               The feature selection process successfully removed redundant variables, cutting the feature space
+               from 21 to 9. The resulting matrix confirms that multicollinearity has been largely reduced,
+               which should improve model interpretability and reduce the risk of overfitting.
+               """)

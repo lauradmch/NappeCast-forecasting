@@ -84,7 +84,7 @@ def featuring_dataset(df: pd.DataFrame,
     # PART FOR GAPS !!!!!!####################
     # PART FOR GAPS !!!!!!####################
     
-    # Computation of cumulative precipitation (during the last 7-30-90 days)
+    # Computation of cumulative precipitation (during the last 30-90 days)
     df['P_cum_30d'] = df['precipitation_sum'].rolling(window=30).sum()
     df['P_cum_90d'] = df['precipitation_sum'].rolling(window=90).sum()
     
@@ -92,18 +92,17 @@ def featuring_dataset(df: pd.DataFrame,
     df['Peff_cum_30d'] = (df['precipitation_sum'] - df['et0_fao_evapotranspiration']).rolling(window=30).sum()
     df['Peff_cum_90d'] = (df['precipitation_sum'] - df['et0_fao_evapotranspiration']).rolling(window=90).sum()
     
-    # Computation of the mean temperature (during the last 7 and 30 days)
+    # Computation of the mean temperature (during the last 30 and 90 days)
     df['Temperature_mean_30d'] = round(df['soil_temperature_0_to_100cm_mean'].rolling(window=30).mean(), 2)
     df['Temperature_mean_90d'] = round(df['soil_temperature_0_to_100cm_mean'].rolling(window=90).mean(), 2)
 
     # Filling the NaN generated during the earliest period of the dataframe (no computation of the cumulative data)
-    df['P_cum_7d']              = df['P_cum_7d'].fillna(df['P_cum_7d'].dropna().iloc[0])
     df['P_cum_30d']             = df['P_cum_30d'].fillna(df['P_cum_30d'].dropna().iloc[0])
     df['P_cum_90d']             = df['P_cum_90d'].fillna(df['P_cum_90d'].dropna().iloc[0])
     df['Peff_cum_30d']          = df['Peff_cum_30d'].fillna(df['Peff_cum_30d'].dropna().iloc[0])
     df['Peff_cum_90d']          = df['Peff_cum_90d'].fillna(df['Peff_cum_90d'].dropna().iloc[0])
-    df['Temperature_mean_7d']   = df['Temperature_mean_7d'].fillna(df['Temperature_mean_7d'].dropna().iloc[0])
-    df['Temperature_mean_30d']  = df['Temperature_mean_30d'].fillna(df['Temperature_mean_30d'].dropna().iloc[0])
+    df['Temperature_mean_30d']   = df['Temperature_mean_30d'].fillna(df['Temperature_mean_30d'].dropna().iloc[0])
+    df['Temperature_mean_90d']  = df['Temperature_mean_90d'].fillna(df['Temperature_mean_90d'].dropna().iloc[0])
 
     # SPLI
     df = add_standardized_features(df)
