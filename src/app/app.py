@@ -20,6 +20,7 @@ from src.app.app_sidebar import render_sidebar
 from src.app.app_identity import render_identity
 from src.app.app_predictions import render_predictions
 from src.app.app_features import render_features
+from src.app.app_stats import render_stats
 
 from src.app.app_doc import render_documentation
 from src.helper.aws import read_csv_in_s3
@@ -30,7 +31,9 @@ CONFIG = load_config()
 API_URL                 = os.getenv("API_URL", "http://localhost:8000")
 CODE_BSS                = ",".join(CONFIG["api"]["piezometer"]["code_bss"])
 STATION_RAW_FILENAME    = Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['station']['raw_filename']}.csv"
-DATASET_FILENAME        = Path(CONFIG["paths"]["data"]["interim"]) / f"{CONFIG['paths']['merged_filename']}.csv"
+INTERIM_FILENAME        = Path(CONFIG["paths"]["data"]["interim"]) / f"{CONFIG['paths']['interim_filename']}.csv"
+PROCESSED_FILENAME        = Path(CONFIG["paths"]["data"]["processed"]) / f"{CONFIG['paths']['processed_filename']}.csv"
+
 S3_SESSION              = boto3.client("s3")
 BUCKET_NAME             = CONFIG["s3"]["bucket"]
 
@@ -46,6 +49,24 @@ st.markdown("""
     .block-container {
         padding-top: 1.5rem !important;
     }
+    .stApp {{ background: {C_BG}; }}
+    .block-container {{ padding-top: 2.2rem; max-width: 1250px; }}
+    h1, h2, h3 {{ color: {C_DEEP}; font-weight: 700; }}
+    .hero {{
+        background: linear-gradient(120deg, {C_DEEP} 0%, {C_BLUE} 55%, {C_TEAL} 100%);
+        color: white; padding: 1.6rem 2rem; border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(11,79,108,0.18); margin-bottom: 1.4rem;
+    }}
+    .hero h1 {{ color: white; margin: 0 0 .3rem 0; font-size: 2.0rem; }}
+    .hero p {{ margin: 0; opacity: .92; font-size: 1.02rem; }}
+    .card {{
+        background: white; border: 1px solid {C_GRID}; border-radius: 14px;
+        padding: 1.1rem 1.3rem 0.4rem 1.3rem; margin-bottom: 1.2rem;
+        box-shadow: 0 2px 10px rgba(11,79,108,0.05);
+    }}
+    .caption {{ color: #567; font-size: 0.9rem; line-height: 1.45; }}
+
+    [data-testid="stMetricValue"] {{ color: {C_DEEP}; }}
     [data-testid="stSidebarHeader"] {
         min-height: 0 !important;
         padding: 0.5rem 1rem 0 1rem !important;
@@ -80,11 +101,12 @@ st.markdown("""
 #---------------------  Load data ---------------------
 @st.cache_data
 def load_data()-> tuple[pd.DataFrame, pd.DataFrame]:
-    df_station = read_csv_in_s3(S3_SESSION, BUCKET_NAME, STATION_RAW_FILENAME)
-    df_dataset = read_csv_in_s3(S3_SESSION, BUCKET_NAME, DATASET_FILENAME)
-    return df_station, df_dataset
+    df_station      = read_csv_in_s3(S3_SESSION, BUCKET_NAME, STATION_RAW_FILENAME)
+    df_interim      = read_csv_in_s3(S3_SESSION, BUCKET_NAME, INTERIM_FILENAME)
+    df_processed    = read_csv_in_s3(S3_SESSION, BUCKET_NAME, PROCESSED_FILENAME)
+    return df_station, df_interim, df_processed
 
-df_station, df_processed = load_data()
+df_station, df_interim, df_processed = load_data()
 
 # --------------------- Sidebar menu ---------------------
 
@@ -94,13 +116,13 @@ render_sidebar(df_station, CODE_BSS, API_URL)
 
 tab_apercu, tab_feature, tab_analyse, tab_prediction, tab_documentation = st.tabs(["Identity", "Features", "Analyse", "Prédiction", "Documentations"])
 with tab_apercu:
-    render_identity (df_processed)
+    render_identity (df_interim)
 
 with tab_feature:
-    render_features(df_processed)
+    render_features(df_interim)
 
 with tab_analyse:
-    render_documentation()
+    render_stats(df_processed)
 
 with tab_prediction:
     render_predictions()

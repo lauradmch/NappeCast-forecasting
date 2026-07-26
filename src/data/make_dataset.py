@@ -266,7 +266,7 @@ def merge_data (df_piezometer: pd.DataFrame,
     logger.info(f"Merging dataset ended!")
 
     if save_file:
-        save_interim_data_to_s3(merged, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["merged_filename"], False)
+        save_interim_data_to_s3(merged, Path(CONFIG["paths"]["data"]["interim"]), CONFIG["paths"]["interim_filename"], False)
 
     return merged
 

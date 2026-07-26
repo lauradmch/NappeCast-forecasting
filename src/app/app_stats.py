@@ -32,31 +32,6 @@ C_GRID = "#d8e6ec"      # light grid
 C_BG = "#f5fafc"        # very light background
 RDBU = "RdBu"           # diverging colormap for standardized indices
 
-st.markdown(
-    f"""
-    <style>
-    .stApp {{ background: {C_BG}; }}
-    .block-container {{ padding-top: 2.2rem; max-width: 1250px; }}
-    h1, h2, h3 {{ color: {C_DEEP}; font-weight: 700; }}
-    .hero {{
-        background: linear-gradient(120deg, {C_DEEP} 0%, {C_BLUE} 55%, {C_TEAL} 100%);
-        color: white; padding: 1.6rem 2rem; border-radius: 16px;
-        box-shadow: 0 8px 24px rgba(11,79,108,0.18); margin-bottom: 1.4rem;
-    }}
-    .hero h1 {{ color: white; margin: 0 0 .3rem 0; font-size: 2.0rem; }}
-    .hero p {{ margin: 0; opacity: .92; font-size: 1.02rem; }}
-    .card {{
-        background: white; border: 1px solid {C_GRID}; border-radius: 14px;
-        padding: 1.1rem 1.3rem 0.4rem 1.3rem; margin-bottom: 1.2rem;
-        box-shadow: 0 2px 10px rgba(11,79,108,0.05);
-    }}
-    .caption {{ color: #567; font-size: 0.9rem; line-height: 1.45; }}
-    [data-testid="stMetricValue"] {{ color: {C_DEEP}; }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 PLOTLY_LAYOUT = dict(
     template="plotly_white",
     font=dict(family="Inter, Segoe UI, sans-serif", color=C_INK, size=13),
@@ -456,3 +431,35 @@ else:
 st.markdown("</div>", unsafe_allow_html=True)
  
 st.caption("NappeCast · Demo Day")
+
+
+
+
+
+
+
+
+# --------------------------- LIBRARY --------------------------------
+import ast
+from pathlib import Path
+from src.config import load_config
+import pandas as pd
+import streamlit as st
+import requests
+import seaborn as sns
+import matplotlib.pyplot as plt
+import plotly.express as px 
+
+# ---------------------------- LOADING DATA ---------------------------
+
+
+# ---------------------------- METHODES ---------------------------
+
+def render_stats(df_processed = pd.DataFrame) -> None:
+    st.markdown("""
+                This page provides an overview of the exploratory data analysis (EDA) performed on the weather dataset during the project.
+                \nIt presents the main characteristics and distributions of the weather features, as well as the data cleaning process, 
+                including the analysis of feature correlations using a correlation matrix.
+                \nFinally, it presents the new features created during the feature engineering process and their contribution to the 
+                dataset.
+                """)

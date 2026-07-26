@@ -17,7 +17,7 @@ paths:
     interim: "data/interim"
     processed: "data/processed"
     external: "data/external"
-  merged_filename: "dataset_merged" 
+  interim_filename: "dataset_interim" 
   processed_filename: "dataset_processed"
   weather:
     raw_filename: "weather_raw"
