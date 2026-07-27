@@ -62,17 +62,11 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
         # Correlation of the numerical features after dropping columns with >= 70% of correlation
         corr = df2.corr(method='pearson', numeric_only=True)
         fig, ax = plt.subplots(figsize=(8, 6))
-        sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
-        ax.set_title('Correlation matrix between features after removal of correlated features')
-        #ax.set_xticklabels(['Daylight duration', 
-        #                'Precipitation', 
-        #                'Shortwave radiation', 
-        #                'Evapotranspiration',
-        #                'Cloud cover',
-        #                'Sea-level pressure',
-        #                'Wind speed',
-        #                'Soil moisture',
-        #                'Soil temperature'])
+        sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', 
+                    vmin=-1, vmax=1, square=True, ax=ax,
+                    annot_kws={"size": 7})
+        ax.set_title('Correlation matrix after removal of correlated features', fontsize=9)
+        ax.tick_params(axis='both', labelsize=7)
         plt.tight_layout()
         st.pyplot(fig)
         st.caption("""
