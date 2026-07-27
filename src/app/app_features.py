@@ -48,6 +48,8 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 | `Sea-level pressure` | hPa	| Atmospheric air pressure reduced to mean sea level |
                 """)
     
+        df_cleaned = df_cleaned.set_index('date_index', drop=False)
+        df_cleaned.index = pd.to_datetime(df_cleaned.index)
     
         cols_to_drop = ['longitude', 'latitude', 'et0_fao_evapotranspiration_sum', 'relative_humidity_2m_mean', 'rain_sum', 'surface_pressure_mean',
                         'dew_point_2m_mean', 'precipitation_hours', 'sunshine_duration', 'weather_code', 'apparent_temperature_min', 
@@ -98,7 +100,7 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                  linestyle= "--",
                  marker='o')
         ax1.set_xlabel('Date')
-        ax1.set_ylabel('niveau_nappe_eau', color='steelblue')
+        ax1.set_ylabel('Ground water level', color='steelblue')
         ax1.tick_params(axis='y', labelcolor='steelblue')
         # Secondary axis : selected column
         ax2 = ax1.twinx()
@@ -111,6 +113,6 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
         
-        ax1.set_title(f'niveau_nappe_eau & {col} over time')
+        ax1.set_title(f'ground water level & {col} over time')
         plt.tight_layout()
         st.pyplot(fig)
