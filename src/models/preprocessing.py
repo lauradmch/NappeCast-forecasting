@@ -1,3 +1,7 @@
+# Import libraries
+import pandas as pd
+
+
 def preprocessing(df):
     """
     This function performed the following steps:
