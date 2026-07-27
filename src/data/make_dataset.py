@@ -32,98 +32,110 @@ CONFIG = load_config()
 
 # ---------------------------- API EXTERNE ---------------------------
 
-def get_weather (lng: str,
-                    lat: str,
-					start_date: str,
-					end_date: str,
-					max_retries: int=3) -> pd.DataFrame:
+def get_weather(lng: str,
+                 lat: str,
+                 start_date: str,
+                 end_date: str,
+                 max_retries: int = 3) -> pd.DataFrame:
 
-	"""
-    Appel de l'hitstorique,  voir apres pour appel du forecast uniquement.
+    """
+    Appel de l'hitstorique, voir apres pour appel du forecast uniquement.
     """
 
-	logger.info(f"Get weather data : {lat}°N {lng}°E - {start_date}->{end_date}")
-    
-	params = {
-		"latitude": lat,
-		"longitude": lng,
-		"start_date": start_date,
-		"end_date": end_date,
-		"daily": ["weather_code", "temperature_2m_max", "temperature_2m_min", "apparent_temperature_max", "apparent_temperature_min", "sunrise", "sunset", "daylight_duration", "sunshine_duration", "uv_index_max", "uv_index_clear_sky_max", "rain_sum", "showers_sum", "snowfall_sum", "precipitation_sum", "precipitation_hours", "precipitation_probability_max", "shortwave_radiation_sum", "et0_fao_evapotranspiration", "cloud_cover_mean", "dew_point_2m_mean", "et0_fao_evapotranspiration_sum", "relative_humidity_2m_mean", "snowfall_water_equivalent_sum", "pressure_msl_mean", "surface_pressure_mean", "visibility_mean", "wind_speed_10m_mean", "soil_moisture_0_to_100cm_mean", "soil_temperature_0_to_100cm_mean"],
-	}
+    logger.info(f"Get weather data : {lat}°N {lng}°E - {start_date}->{end_date}")
 
-	attempt = 0
-	r = None
+    params = {
+        "latitude": lat,
+        "longitude": lng,
+        "start_date": start_date,
+        "end_date": end_date,
+        "daily": ["weather_code", "temperature_2m_max", "temperature_2m_min", "apparent_temperature_max", "apparent_temperature_min", "sunrise", "sunset", "daylight_duration", "sunshine_duration", "uv_index_max", "uv_index_clear_sky_max", "rain_sum", "showers_sum", "snowfall_sum", "precipitation_sum", "precipitation_hours", "precipitation_probability_max", "shortwave_radiation_sum", "et0_fao_evapotranspiration", "cloud_cover_mean", "dew_point_2m_mean", "et0_fao_evapotranspiration_sum", "relative_humidity_2m_mean", "snowfall_water_equivalent_sum", "pressure_msl_mean", "surface_pressure_mean", "visibility_mean", "wind_speed_10m_mean", "soil_moisture_0_to_100cm_mean", "soil_temperature_0_to_100cm_mean"],
+    }
 
-	while attempt < max_retries:
-		attempt +=1
-		try:
-			r = requests.get(CONFIG["api"]["weather"]["url_archive"], params=params, timeout=(5, 30))
-			r.raise_for_status()
-			break
+    attempt = 0
+    r = None
 
-		except requests.exceptions.Timeout:
-			logger.warning("Timeout (tentative %s/%s) pour %s;%s",attempt, max_retries, lat, lng)
-			time.sleep(10)
+    while attempt < max_retries:
+        attempt += 1
+        try:
+            r = requests.get(CONFIG["api"]["weather"]["url_archive"], params=params, timeout=(5, 30))
+            r.raise_for_status()
+            break
 
-	if r is None or not r.ok:
-		raise RuntimeError(f"Échec de récupération météo après {attempt} tentatives")
-	
-	daily = r.json()["daily"]
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            logger.warning("%s (tentative %s/%s) pour %s;%s : %s",
+                           type(e).__name__, attempt, max_retries, lat, lng, e)
+            time.sleep(10)
 
-	return pd.DataFrame({
-		"date": pd.to_datetime(daily["time"]),
-		"latitude": lat,
-		"longitude": lng,
-		"weather_code": daily["weather_code"],
-		"temperature_2m_max": daily["temperature_2m_max"],
-		"temperature_2m_min": daily["temperature_2m_min"],
-		"apparent_temperature_max": daily["apparent_temperature_max"],
-		"apparent_temperature_min": daily["apparent_temperature_min"],
-		"sunrise": daily["sunrise"],
-		"sunset": daily["sunset"],
-		"daylight_duration": daily["daylight_duration"],
-		"sunshine_duration": daily["sunshine_duration"],
-		"uv_index_max": daily["uv_index_max"],
-		"uv_index_clear_sky_max": daily["uv_index_clear_sky_max"],
-		"rain_sum": daily["rain_sum"],
-		"showers_sum": daily["showers_sum"],
-		"snowfall_sum": daily["snowfall_sum"],
-		"precipitation_sum": daily["precipitation_sum"],
-		"precipitation_hours": daily["precipitation_hours"],
-		"precipitation_probability_max": daily["precipitation_probability_max"],
-		"shortwave_radiation_sum": daily["shortwave_radiation_sum"],
-		"et0_fao_evapotranspiration": daily["et0_fao_evapotranspiration"],
-		"cloud_cover_mean": daily["cloud_cover_mean"],
-		"dew_point_2m_mean": daily["dew_point_2m_mean"],
-		"et0_fao_evapotranspiration_sum": daily["et0_fao_evapotranspiration_sum"],
-		"relative_humidity_2m_mean": daily["relative_humidity_2m_mean"],
-		"snowfall_water_equivalent_sum": daily["snowfall_water_equivalent_sum"],
-		"pressure_msl_mean": daily["pressure_msl_mean"],
-		"surface_pressure_mean": daily["surface_pressure_mean"],
-		"visibility_mean": daily["visibility_mean"],
-		"wind_speed_10m_mean": daily["wind_speed_10m_mean"],
-		"soil_moisture_0_to_100cm_mean": daily["soil_moisture_0_to_100cm_mean"],
-		"soil_temperature_0_to_100cm_mean": daily["soil_temperature_0_to_100cm_mean"],
-	})
+    if r is None or not r.ok:
+        raise RuntimeError(f"Échec de récupération météo après {attempt} tentatives")
+
+    daily = r.json()["daily"]
+
+    return pd.DataFrame({
+        "date": pd.to_datetime(daily["time"]),
+        "latitude": lat,
+        "longitude": lng,
+        "weather_code": daily["weather_code"],
+        "temperature_2m_max": daily["temperature_2m_max"],
+        "temperature_2m_min": daily["temperature_2m_min"],
+        "apparent_temperature_max": daily["apparent_temperature_max"],
+        "apparent_temperature_min": daily["apparent_temperature_min"],
+        "sunrise": daily["sunrise"],
+        "sunset": daily["sunset"],
+        "daylight_duration": daily["daylight_duration"],
+        "sunshine_duration": daily["sunshine_duration"],
+        "uv_index_max": daily["uv_index_max"],
+        "uv_index_clear_sky_max": daily["uv_index_clear_sky_max"],
+        "rain_sum": daily["rain_sum"],
+        "showers_sum": daily["showers_sum"],
+        "snowfall_sum": daily["snowfall_sum"],
+        "precipitation_sum": daily["precipitation_sum"],
+        "precipitation_hours": daily["precipitation_hours"],
+        "precipitation_probability_max": daily["precipitation_probability_max"],
+        "shortwave_radiation_sum": daily["shortwave_radiation_sum"],
+        "et0_fao_evapotranspiration": daily["et0_fao_evapotranspiration"],
+        "cloud_cover_mean": daily["cloud_cover_mean"],
+        "dew_point_2m_mean": daily["dew_point_2m_mean"],
+        "et0_fao_evapotranspiration_sum": daily["et0_fao_evapotranspiration_sum"],
+        "relative_humidity_2m_mean": daily["relative_humidity_2m_mean"],
+        "snowfall_water_equivalent_sum": daily["snowfall_water_equivalent_sum"],
+        "pressure_msl_mean": daily["pressure_msl_mean"],
+        "surface_pressure_mean": daily["surface_pressure_mean"],
+        "visibility_mean": daily["visibility_mean"],
+        "wind_speed_10m_mean": daily["wind_speed_10m_mean"],
+        "soil_moisture_0_to_100cm_mean": daily["soil_moisture_0_to_100cm_mean"],
+        "soil_temperature_0_to_100cm_mean": daily["soil_temperature_0_to_100cm_mean"],
+    })
 
 
-def get_hubeau(first_url: str,
-                 params: str) -> pd.DataFrame:
+def get_hubeau(first_url: str, params: str) -> pd.DataFrame:
     data_page = []
     next_url = first_url
-    headers = {"accept": "application/json"}
- 
+    headers = {
+        "accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; NappeCast/1.0)",
+    }
+
+    max_retries = 5
+    retries = 0
+
     while next_url:
         try:
             logger.info(f"Get hubeau data : {next_url}")
             r = requests.get(next_url, params=params, headers=headers, timeout=(5, 30))
             r.raise_for_status()
-            
-        except requests.exceptions.Timeout:
-            print("Timeout, nouvelle tentative...")
-            time.sleep(2)
-            continue 
+            retries = 0  # reset après un succès
+
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            retries += 1
+            if retries > max_retries:
+                logger.error(f"Échec définitif après {max_retries} tentatives : {e}")
+                raise
+            wait = 2 ** retries
+            logger.warning(f"{type(e).__name__}, nouvelle tentative dans {wait}s...")
+            time.sleep(wait)
+            continue
 
         data = r.json()
         data_page.extend(data["data"])
@@ -139,11 +151,12 @@ def get_hubeau(first_url: str,
 def fetch_weather_by_year(code_bss: str,
                            lng: str,
                            lat: str,
+                           start_date: str,    
                            end_date: str,
                            failed_calls: list[dict],
 						   save_file: bool = True) -> pd.DataFrame:
     
-    start   = pd.to_datetime(CONFIG["api"]["weather"]["start_date"])
+    start   = pd.to_datetime(start_date)
     end     = pd.to_datetime(end_date)
     frame   = []
 
@@ -225,6 +238,7 @@ def fetch_weather (df_station: pd.DataFrame,
                    failed_calls: list[dict])-> pd.DataFrame:
     frames=[]
     failed_calls=[]
+    start_date = CONFIG["api"]["weather"]["start_date"]
     
     for end_date, lat, lng, code_bss in zip(df_station["date_fin_mesure"], 
                                                 df_station["latitude"], 
@@ -233,6 +247,7 @@ def fetch_weather (df_station: pd.DataFrame,
         frames.append(fetch_weather_by_year(code_bss,
                                         lng,
                                         lat,
+                                        start_date,
                                         end_date,
                                         failed_calls,
                                         False))
@@ -242,8 +257,24 @@ def fetch_weather (df_station: pd.DataFrame,
         save_raw_data_to_s3(df, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["weather"]["raw_filename"], False)
       
     return df
-  
 
+  
+def fetch_weather_recent(df_station: pd.DataFrame, start_dates: pd.Series, failed_calls: list[dict]) -> pd.DataFrame:
+    """
+    Equivalent de fetch_weather, mais avec une date de depart par station
+    au lieu de repartir de date_fin_mesure.
+    """
+    import datetime
+
+    end_date = datetime.date.today()
+    frames = []
+
+    for start_date, lat, lng, code_bss in zip(start_dates, df_station["latitude"], df_station["longitude"], df_station["code_bss"]):
+        frames.append(fetch_weather_by_year(code_bss, lng, lat, start_date, end_date, failed_calls, False))
+
+    return pd.concat(frames, ignore_index=True)
+
+  
 def merge_data (df_piezometer: pd.DataFrame,
                 df_weather: pd.DataFrame,
                 save_file: bool) -> pd.DataFrame:
@@ -266,63 +297,90 @@ def merge_data (df_piezometer: pd.DataFrame,
 
     return merged
 
-# ----------------------- MODE FORECAST ------------------------
+
+def merge_data_history(df_hist: pd.DataFrame, df_new: pd.DataFrame, code_col: str, date_col: str) -> pd.DataFrame:
+    df = pd.concat([df_hist, df_new], ignore_index=True)
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.sort_values(date_col).drop_duplicates(subset=[code_col, date_col], keep="last")
+    return df.reset_index(drop=True)
+
+
+def fetch_piezometer_recent(df_station: pd.DataFrame, start_dates: pd.Series) -> pd.DataFrame:
+    """
+    Equivalent de fetch_piezometer, avec un filtre de date de debut
+    pour ne recuperer que les mesures recentes.
+    """
+    frames = []
+    for start_date, code_bss in zip(start_dates, df_station["code_bss"]):
+        params = {
+            "size": 5000,
+            "code_bss": code_bss,
+            "date_debut_mesure": start_date.strftime("%Y-%m-%d"),
+        }
+        frames.append(get_hubeau(CONFIG["api"]["piezometer"]["url_piezometre"], params))
+
+    return pd.concat(frames, ignore_index=True)
+
 
 def get_forecast(df_station: pd.DataFrame,
-                 path_weather_s3: str, 
-                 path_piezometer_s3: str) -> tuple[pd.DataFrame, pd.DataFrame]:
- 
+                 save_file: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
+
     # récupération de l'historique sur S3
-    df_weather_hist, df_piezometer_hist = load_historical_in_s3(path_weather_s3, path_piezometer_s3)
+    weather_raw_filename     = str(Path(CONFIG["paths"]["data"]["raw"])/f"{CONFIG['paths']['weather']['raw_filename']}.csv")
+    piezometer_raw_filename  = str(Path(CONFIG["paths"]["data"]["raw"])/f"{CONFIG['paths']['piezometer']['raw_filename']}.csv")
+    df_weather_hist, df_piezometer_hist = load_historical_in_s3(weather_raw_filename, piezometer_raw_filename)
+
+    df_weather_hist = df_weather_hist.rename(columns={"date_index": "date"})
+    df_piezometer_hist = df_piezometer_hist.rename(columns={"date_index": "date_mesure"})
 
     # dernieres dates connues par station
-    last_weather_dates      = get_last_dates(df_weather_hist, "code_bss", "date_mesure")
+    last_weather_dates      = get_last_dates(df_weather_hist, "code_bss", "date")
     last_piezometer_dates   = get_last_dates(df_piezometer_hist, "code_bss", "date_mesure")
 
     # dates de reprise
-    start_dates_weather     = build_start_dates(df_station, last_weather_dates, CONFIG["start_date"])
-    start_dates_piezometer  = build_start_dates(df_station, last_piezometer_dates, CONFIG["start_date"])
+    start_dates_weather     = build_start_dates(df_station, last_weather_dates, CONFIG["api"]["weather"]["start_date"])
+    start_dates_piezometer  = build_start_dates(df_station, last_piezometer_dates, CONFIG["api"]["weather"]["start_date"])
 
     # fetch uniquement sur la periode recente
     failed_calls: list[dict] = []
-
     df_weather_new          = fetch_weather_recent(df_station, start_dates_weather, failed_calls)
     df_piezometer_new       = fetch_piezometer_recent(df_station, start_dates_piezometer)
- 
-    # 5. fusion avec l'historique
-    df_weather = merge_with_history(df_weather_hist, df_weather_new, "code_bss", "date_mesure")
-    df_piezo = merge_with_history(df_piezo_hist, df_piezo_new, "code_bss", "date_mesure")
- 
-    return df_weather, df_piezo
+
+    # fusion avec l'historique
+    df_weather              = merge_data_history(df_weather_hist, df_weather_new, "code_bss", "date")
+    df_piezometer           = merge_data_history(df_piezometer_hist, df_piezometer_new, "code_bss", "date_mesure")
+
+    if save_file:
+        save_raw_data_to_s3(df_weather, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["weather"]["raw_filename"],False)
+        save_raw_data_to_s3(df_piezometer, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["piezometer"]["raw_filename"],False)
+
+    return df_weather, df_piezometer
+
+
+def build_dataset(skip_historical: bool = False, save_csv: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+    failed_calls = []
+    df_station = fetch_station(save_file=save_csv)
+
+    if not skip_historical:
+        df_weather = fetch_weather(df_station, save_file=save_csv, failed_calls=failed_calls)
+        df_piezometer = fetch_piezometer(df_station, save_file=save_csv)
+    else:
+        df_weather, df_piezometer = get_forecast (df_station, save_file=save_csv)
+     
+    df_weather = weather_dataset_cleaning(df_weather, save_file=save_csv)
+    df_piezometer = piezometer_dataset_cleaning(df_piezometer, save_file=save_csv)
+
+    return df_station, merge_data(df_piezometer, df_weather, save_file=save_csv)
 
 
 # ---------------------------- RUN ---------------------------
 def main()-> str: 
     parser = argparse.ArgumentParser(description="Prépare le dataset propre")
-    parser.add_argument("--skip-historical",action="store_true",help="Ne pas appeler l'API météo")
-    parser.add_argument("--save-csv",action="store_true",help="Persiste les fichiers csv")
+    parser.add_argument("--skip-historical", action="store_true")
+    parser.add_argument("--save-csv", action="store_true")
+    args = parser.parse_args()
 
-    args            = parser.parse_args()
-    failed_calls    = []
-    df_station      = fetch_station(save_file=args.save_csv)
-
-    if not args.skip_historical:
-        logger.info("Mode récupération historique actif")
-        df_weather   = fetch_weather(df_station, save_file=args.save_csv, failed_calls=failed_calls)
-        df_piezometer= fetch_piezometer(df_station, save_file=args.save_csv)
-    else:
-        logger.info("Mode récupération forecast actif")
-        df_weather      = pd.read_csv(Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['weather']['raw_filename']}.csv")
-        df_piezometer   = pd.read_csv(Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['piezometer']['raw_filename']}.csv")
-
-    # clean datasets
-    df_weather      = weather_dataset_cleaning(df_weather, save_file=args.save_csv)
-    df_piezometer   = piezometer_dataset_cleaning(df_piezometer,save_file=args.save_csv)
-
-    # merge datasets
-    df_merged       = merge_data(df_piezometer, df_weather, save_file=args.save_csv)
-
-    return df_merged
+    return build_dataset(skip_historical=args.skip_historical, save_csv=args.save_csv)
 
 if __name__ == "__main__":
     main()

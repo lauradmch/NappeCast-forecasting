@@ -129,27 +129,26 @@ def read_csv_in_s3(s3_client,
     """
     Lit un fichier sur le bucket s3
     """
-
     logger.info(f"Lecture du fichier S3 {filename} dans le bucket {bucket}")
     obj = s3_client.get_object(Bucket=bucket, Key=str(filename))
     return pd.read_csv(io.BytesIO(obj["Body"].read()))
 
  
-def load_historical_in_s3(bucket: str, 
-                       weather_raw_filename: str, 
-                       piezometer_raw_filename: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_historical_in_s3(weather_raw_filename: str, 
+                          piezometer_raw_filename: str) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     """
     Charge les historiques weather et piezometre depuis S3.
     """
-    s3_cfg = CONFIG.get("s3")
-
-    if not file_exists_in_s3(s3_cfg["bucket"], bucket, weather_raw_filename):
-        raise FileNotFoundError(f"Historique weather introuvable sur S3 : s3://{bucket}/{weather_raw_filename}")
-    if not file_exists_in_s3(s3_cfg["bucket"], bucket, piezometer_raw_filename):
-        raise FileNotFoundError(f"Historique piezometre introuvable sur S3 : s3://{bucket}/{piezometer_raw_filename}")
+    s3 = boto3.client("s3")
+   
+    if not file_exists_in_s3(s3, CONFIG["s3"]["bucket"], weather_raw_filename):
+        raise FileNotFoundError(f"Historique weather introuvable sur S3 : s3://{CONFIG['s3']['bucket']}/{weather_raw_filename}")
+    
+    if not file_exists_in_s3(s3, CONFIG["s3"]["bucket"], piezometer_raw_filename):
+        raise FileNotFoundError(f"Historique piezometre introuvable sur S3 : s3://{CONFIG['s3']['bucket']}/{piezometer_raw_filename}")
  
-    df_weather_hist = read_csv_in_s3(s3_cfg["bucket"], bucket, weather_raw_filename)
-    df_piezo_hist = read_csv_in_s3(s3_cfg["bucket"], bucket, piezometer_raw_filename)
+    df_weather_hist = read_csv_in_s3(s3, CONFIG["s3"]["bucket"], weather_raw_filename)
+    df_piezo_hist = read_csv_in_s3(s3, CONFIG["s3"]["bucket"], piezometer_raw_filename)
  
     return df_weather_hist, df_piezo_hist

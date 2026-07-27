@@ -31,7 +31,7 @@ def render_sidebar(df_station: pd.DataFrame,
                    api_url: str) -> None:
     station = df_station.iloc[0]  # ligne unique -> Series pour l'affichage texte
     with st.sidebar:
-        st.header(f"**{station['libelle_pe']}**")
+        st.header(f"**Piezometer {station['libelle_pe']}**")
         st.caption(f"BSS {station['bss_id']} — {station['code_bss']}")
         fig = px.scatter_mapbox(
             df_station,
@@ -61,12 +61,27 @@ def render_sidebar(df_station: pd.DataFrame,
         st.write(f"**Masse d'eau :** {_parse_list_str(station['noms_masse_eau_edl'])}")
         st.write(f"**Code masse d'eau :** {_parse_list_str(station['codes_masse_eau_edl'])}")
         st.write(f"**Entité BDLISA :** {_parse_list_str(station['codes_bdlisa'])}")
-        st.caption(f"Dernière mise à jour : {station['date_maj']}")
+        st.caption(f"Dernière mise à jour : {station['date_fin_mesure']}")
+
         st.subheader("API")
+
         if st.button("Vérifier la connexion à l'API"):
             try:
                 r = requests.get(f"{api_url}/health", timeout=5)
                 r.raise_for_status()
                 st.success("API disponible ✅")
+
+            except Exception as e:
+                st.error(f"API indisponible : {e}")
+
+        if st.button("Mettre à jour les données"):
+            try:
+                with st.spinner("Traitement en cours, cela peut prendre jusqu'à une minute..."):
+                    r = requests.get(f"{api_url}/data", timeout=60)
+                    r.raise_for_status()
+
+                df_station = pd.read_json(r.json()["stations"], orient="split")
+                df_processed = pd.read_json(r.json()["processed"], orient="split")
+
             except Exception as e:
                 st.error(f"API indisponible : {e}")

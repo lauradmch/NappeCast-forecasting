@@ -27,9 +27,12 @@ services:
     build:
       context: .                    # racine du projet, englobe tout src/
       dockerfile: src/api/Dockerfile
+    environment:
+      - MLFLOW_TRACKING_URI=http://13.37.240.162:5000
     expose:
       - "8000"
     restart: unless-stopped
+
 volumes:
   streamlit_data:
   caddy_data:

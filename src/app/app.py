@@ -15,13 +15,11 @@ import yaml
 from io import StringIO
 from pathlib import Path
 from src.config import load_config
-
 from src.app.app_sidebar import render_sidebar
 from src.app.app_identity import render_identity
 from src.app.app_predictions import render_predictions
 from src.app.app_features import render_features
 from src.app.app_stats import render_stats
-
 from src.app.app_doc import render_documentation
 from src.helper.aws import read_csv_in_s3
 
@@ -95,12 +93,24 @@ st.markdown("""
     [data-testid="stTabs"] button[aria-selected="true"] {
         border-bottom: 3px solid #FF4B4B;
     }
+    [data-testid="stMetric"] {
+    background-color: #f4f4f7;
+    border-radius: 4px;
+    padding: 15px;
+    border-left: 4px solid #D85A30;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #5f5f5f;
+    }
+    [data-testid="stMetricValue"] {
+        color: #5f5f5f;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 #---------------------  Load data ---------------------
 @st.cache_data
-def load_data()-> tuple[pd.DataFrame, pd.DataFrame]:
+def load_data()-> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     df_station      = read_csv_in_s3(S3_SESSION, BUCKET_NAME, STATION_RAW_FILENAME)
     df_interim      = read_csv_in_s3(S3_SESSION, BUCKET_NAME, INTERIM_FILENAME)
     df_processed    = read_csv_in_s3(S3_SESSION, BUCKET_NAME, PROCESSED_FILENAME)
@@ -114,9 +124,10 @@ render_sidebar(df_station, CODE_BSS, API_URL)
 
 #---------------------  Onglets ---------------------
 
-tab_apercu, tab_feature, tab_analyse, tab_prediction, tab_documentation = st.tabs(["Identity", "Features", "Analyse", "Prédictions", "Documentations"])
-with tab_apercu:
-    render_identity (df_interim)
+tab_documentation, tab_feature, tab_analyse, tab_prediction = st.tabs(["Documentation", "Data", "Analyse", "Prédictions"])
+
+with tab_documentation:
+    render_documentation()
 
 with tab_feature:
     render_features(df_interim)
@@ -127,5 +138,3 @@ with tab_analyse:
 with tab_prediction:
     render_predictions()
     
-with tab_documentation:
-    render_documentation()

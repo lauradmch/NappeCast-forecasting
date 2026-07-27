@@ -10,6 +10,7 @@ api:
     url_archive: "https://archive-api.open-meteo.com/v1/archive"
     url_forecast: ""
     start_date: "2017-01-01"
+  forecast_horizon: 30
     
 paths:
   data:
@@ -39,23 +40,39 @@ s3:
     external: "data/external"
 
 model:
-  type: ""
-  params:
-    random_state: 42
-  features:
-    numeric:
-      - "numeric_1"
-    categorical:
-      - "categorical_1"
-
+  Linear:
+    type: "LinearRegression"
+    params:
+      fit_intercept: true
+  XGBoost:
+    type: "XGBRegressor"
+    params:
+      n_estimators: 300
+      max_depth: 6
+      learning_rate: 0.05
+      subsample: 0.8
+      colsample_bytree: 0.8
+      random_state: 42
+  Prophet:
+    type: "Prophet"
+    params:
+      yearly_seasonality: true
+      weekly_seasonality: false
+      daily_seasonality: false
+      changepoint_prior_scale: 0.05
+      
 training:
-  test_size: 0.2
+  test_size: 30
   random_state: 42
   cv_folds: 5
   scoring: "accuracy"
 
 mlflow:
   experiment_name: "nappecast"
-  default_tracking_uri: "https://ronan-guillou-mlflow-test.hf.space/"
-  registered_model_name: "nappecast_model"
-  model_alias: "champion"  # Alias assigné à la dernière version entraînée (ex: "champion") depuis la version 2.9
+  default_tracking_uri: "http://13.37.240.162:5000/"
+  active_model: "XGBoost"
+  model_alias: "production"
+  registered_model_name:
+    LinearRegression: "nappecast_Linear"
+    XGBoost: "nappecast_XGBoost"
+    Prophet: "nappecast_Prophet"
