@@ -87,9 +87,12 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 Each feature is plotted against the water table level (niveau_nappe_eau) to visually assess
                 potential relationships or correlations.
                 """)
+
     col = st.selectbox('Select a column', [c for c in df_reduced.columns if c != 'niveau_nappe_eau'])
+    data = df_reduced[[col, 'niveau_nappe_eau']].dropna()
+
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.scatter(df_reduced[col].dropna(), df_reduced['niveau_nappe_eau'].dropna(), alpha=0.5)
+    ax.scatter(data[col], data['niveau_nappe_eau'], alpha=0.5)
     ax.set_title(f'{col} vs niveau_nappe_eau')
     ax.set_xlabel(col)
     ax.set_ylabel('niveau_nappe_eau')

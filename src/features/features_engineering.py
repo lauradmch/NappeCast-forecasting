@@ -68,7 +68,7 @@ def add_standardized_features(df: pd.DataFrame,
 
     # Broadcast monthly -> daily: align each day to its month start, then map
     month_key = df.index.to_period("M").to_timestamp()        # each daily row -> its 1st-of-month
-    daily = panel.reindex(month_key).set_index(df.index)      # ffill happens implicitly via reindex-on-month
+    daily = panel.reindex(month_key).set_index(df.index, drop=False)      # ffill happens implicitly via reindex-on-month
 
     logger.info(f"add_standardized_features terminé !")
     return df.join(daily)
@@ -82,7 +82,7 @@ def featuring_dataset(df: pd.DataFrame) -> pd.DataFrame:
     
     # Setting 'date_index' as index of the dataframe
     df["date_index"] = pd.to_datetime(df["date_index"])
-    df = df.set_index("date_index")
+    df = df.set_index("date_index", drop=False)
     
     # Treatment of duplicated rows (kept only one reading per day)
     df = df[~df.index.duplicated(keep="first")]

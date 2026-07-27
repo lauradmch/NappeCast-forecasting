@@ -245,7 +245,9 @@ def render_stats(df_processed: pd.DataFrame):
         """,
         unsafe_allow_html=True,
     )
-    
+    df['date_index'] = pd.to_datetime(df['date_index'])  # adjust column name
+    df = df.set_index('date_index')
+
     df = df_processed
     if df is None:
         st.warning("No dataset loaded. Set your config path or upload the merged CSV from the sidebar.")
