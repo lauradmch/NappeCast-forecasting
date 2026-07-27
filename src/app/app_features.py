@@ -38,7 +38,27 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 - **Missing values:** assess and handle missing values (not shown)
                 - **Feature correlations:** evaluate correlations between features and determine whether any treatment was required
                 - **Feature engineering:** create new features based on domain expertise
-                """)
+                
+                
+                \n List of the features collected and their description:
+                # Weather Variables
+                
+                | Variable | Unit | Description |
+                |---|---|---|
+                | `weather_code` | WMO code | The most severe weather condition on a given day |
+                | `temperature_2m_max` / `temperature_2m_min` | °C (°F) | Maximum and minimum daily air temperature at 2 meters above ground |
+                | `apparent_temperature_max` / `apparent_temperature_min` | °C (°F) | Maximum and minimum daily apparent temperature |
+                | `precipitation_sum` | mm | Sum of daily precipitation (including rain, showers and snowfall) |
+                | `rain_sum` | mm | Sum of daily rain |
+                | `snowfall_sum` | cm | Sum of daily snowfall |
+                | `precipitation_hours` | hours | The number of hours with rain |
+                | `sunrise` / `sunset` | iso8601 | Sun rise and set times |
+                | `sunshine_duration` | seconds | The number of seconds of sunshine per day is determined by calculating direct normalized irradiance exceeding 120 W/m², following the WMO definition. Sunshine duration will consistently be less than daylight duration due to dawn and dusk. |
+                | `daylight_duration` | seconds | Number of seconds of daylight per day |
+                | `wind_speed_10m_max` / `wind_gusts_10m_max` | km/h (mph, m/s, knots) | Maximum wind speed and gusts on a day |
+                | `wind_direction_10m_dominant` | ° | Dominant wind direction |
+                | `shortwave_radiation_sum` | MJ/m² | The sum of solar radiation on a given day in Megajoules |
+                | `et0_fao_evapotranspiration` | mm | Daily sum of ET₀ Reference Evapotranspiration of a well watered grass field |""")
     
     
     # Correlation of the numerical features
@@ -47,7 +67,7 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 This section presents the weather dataset after collection and cleaning for features with 100% of NaN and non-informative data.
                 """)
     corr = df_cleaned.corr(method='pearson', numeric_only=True)
-    fig, ax = plt.subplots(figsize=(20, 20))
+    fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
     ax.set_title('Correlation matrix between features before removal of correlated features')
     plt.tight_layout()
@@ -69,7 +89,7 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
     
     # Correlation of the numerical features after dropping columns with >= 70% of correlation
     corr = df_reduced.corr(method='pearson', numeric_only=True)
-    fig, ax = plt.subplots(figsize=(20, 20))
+    fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
     ax.set_title('Correlation matrix between features after removal of correlated features')
     plt.tight_layout()
@@ -97,4 +117,4 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
     ax.set_xlabel(col)
     ax.set_ylabel('niveau_nappe_eau')
     plt.tight_layout()
-    st.pyplot(fig)  
+    st.pyplot(fig)
