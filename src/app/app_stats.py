@@ -268,7 +268,7 @@ def render_stats(df_processed: pd.DataFrame):
     k1.metric("Records (daily)", f"{len(df):,}")
     k2.metric("Period covered", span)
     k3.metric("Months of SPLI", f"{spli_m.notna().sum()}")
-    k4.metric("Drought events (SPLI<-1)", f"{len(ev_all)}")
+    k4.metric("Drought events (SPLI<-1.5)", f"{len(ev_all)}")
     
     if missing_drivers:
         st.caption(f"Note: driver indices not found in the dataset, skipped: {missing_drivers}")
