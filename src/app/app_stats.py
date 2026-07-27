@@ -106,7 +106,7 @@ def characterize_events(series, threshold=-1.5, direction="below", min_gap=1, po
 @st.cache_data(show_spinner=False)
 def spli_droughts(spli_monthly: pd.Series):
     """Return (events_df, longest_event, most_intense_event) for the SPLI series."""
-    ev = characterize_events(spli_monthly, threshold=-1.0)
+    ev = characterize_events(spli_monthly, threshold=-1.5)
     if ev.empty:
         return ev, None, None
     longest = ev.loc[ev["duration_m"].idxmax()]
@@ -129,9 +129,9 @@ def fig_stl(gwl: pd.Series) -> go.Figure:
     stl = STL(series, period=365, robust=True).fit()
     parts = [
         ("Observed groundwater level", series, C_INK),
-        ("Trend — long-term movement", stl.trend, C_DEEP),
-        ("Seasonal — repeating yearly cycle", stl.seasonal, C_TEAL),
-        ("Residual — noise & anomalies", stl.resid, C_BLUE),
+        ("Trend: long-term movement", stl.trend, C_DEEP),
+        ("Seasonal: repeating yearly cycle", stl.seasonal, C_TEAL),
+        ("Residual: noise & anomalies", stl.resid, C_BLUE),
     ]
     fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.05,
                         subplot_titles=[p[0] for p in parts])
@@ -141,7 +141,7 @@ def fig_stl(gwl: pd.Series) -> go.Figure:
         if name.startswith("Residual"):
             fig.add_hline(y=0, line=dict(color="grey", width=0.6, dash="dot"), row=i, col=1)
     fig.update_layout(**PLOTLY_LAYOUT, height=760, showlegend=False,
-                      title="Signal, seasonality & noise — STL decomposition of the groundwater level")
+                      title="Signal, seasonality & noise (STL decomposition of the groundwater level)")
     fig.update_yaxes(gridcolor=C_GRID)
     fig.update_xaxes(gridcolor=C_GRID)
     return fig
@@ -198,7 +198,7 @@ def fig_spli_events(gwl: pd.Series, spli_monthly: pd.Series, longest, most_inten
                       annotation_text="most intense", annotation_position="top right",
                       annotation_font_color="#2471a3")
     fig.update_layout(**PLOTLY_LAYOUT, height=560, showlegend=False,
-                      title="Extreme droughts on the SPLI — red = longest, blue = most intense")
+                      title="Extreme droughts on the SPLI (red = longest, blue = most intense)")
     fig.update_yaxes(gridcolor=C_GRID)
     fig.update_xaxes(gridcolor=C_GRID)
     return fig
@@ -311,7 +311,7 @@ def render_stats(df_processed: pd.DataFrame):
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("Extreme droughts on the SPLI")
     st.markdown(
-        '<p class="caption">Droughts detected by run theory (pooled runs below SPLI = −1). '
+        '<p class="caption">Droughts detected by events below SPLI = −1.5 '
         '<span style="color:#c0392b;font-weight:600">Red box</span> = longest event, '
         '<span style="color:#2471a3;font-weight:600">blue box</span> = most intense event.</p>',
         unsafe_allow_html=True,
@@ -326,7 +326,7 @@ def render_stats(df_processed: pd.DataFrame):
     st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("What drives the groundwater — lagged cross-correlation")
+    st.subheader("What drives the groundwater · lagged cross-correlation")
     st.markdown(
         '<p class="caption">Each curve is the Pearson correlation between a climate driver at '
         'month <i>t</i> and the SPLI at month <i>t + lag</i>. The lag of the peak is the effective '
@@ -352,6 +352,5 @@ def render_stats(df_processed: pd.DataFrame):
             st.markdown("  \n".join(best_txt))
     st.markdown("</div>", unsafe_allow_html=True)
     
-    st.caption("NappeCast · Demo Day")
 
 
