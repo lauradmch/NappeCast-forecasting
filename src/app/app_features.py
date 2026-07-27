@@ -62,13 +62,15 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
         # Correlation of the numerical features after dropping columns with >= 70% of correlation
         corr = df2.corr(method='pearson', numeric_only=True)
         fig, ax = plt.subplots(figsize=(8, 6))
-        sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', 
+        sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm',
                     vmin=-1, vmax=1, square=True, ax=ax,
-                    annot_kws={"size": 7})
+                annot_kws={"size": 7})
         ax.set_title('Correlation matrix after removal of correlated features', fontsize=9)
         ax.tick_params(axis='both', labelsize=7)
         plt.tight_layout()
-        st.pyplot(fig)
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col2:
+                st.pyplot(fig)
         st.caption("""
                The feature selection process successfully removed redundant variables, cutting the feature space
                from 21 to 9. The resulting matrix confirms that multicollinearity has been largely reduced,
@@ -79,13 +81,14 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
         # Exploration of the different features against the 'niveau_nappe_eau' column:
         st.markdown("""
                         Explore the cleaned features of the dataset by selecting a column from the dropdown menu.
-                        Each feature is plotted against the water table level (niveau_nappe_eau) to visually assess
-                        potential relationships or correlations.
+                        Each feature is plotted against the ground water level to visually assess potential 
+                        relationships or correlations.
                         """)
         
         col = st.selectbox('Select an additional column', [c for c in df2.columns if c != 'niveau_nappe_eau'])
         data = df2[['niveau_nappe_eau', col]].dropna()
-        fig, ax1 = plt.subplots(figsize=(10, 8))
+        data.index = pd.to_datetime(data.index)
+        fig, ax1 = plt.subplots(figsize=(10, 6))
         
         # Primary axis: 'niveau_nappe_eau'
         ax1.plot(data.index, data['niveau_nappe_eau'], 
