@@ -94,7 +94,12 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
         fig, ax1 = plt.subplots(figsize=(10, 8))
         
         # Primary axis: 'niveau_nappe_eau'
-        ax1.lines(data.index, data['niveau_nappe_eau'], color='steelblue', label='niveau_nappe_eau')
+        ax1.plot(data.index, data['niveau_nappe_eau'], 
+                 color='steelblue', 
+                 label='niveau_nappe_eau',
+                 linewidth= 1.5,
+                 linestyle= "--",
+                 marker='o')
         ax1.set_xlabel('Date')
         ax1.set_ylabel('niveau_nappe_eau', color='steelblue')
         ax1.tick_params(axis='y', labelcolor='steelblue')
