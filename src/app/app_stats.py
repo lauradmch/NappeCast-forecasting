@@ -236,19 +236,10 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
 
 
 def render_stats(df_processed: pd.DataFrame):
-    st.markdown(
-        """
-        <div class="hero">
-        <h1>💧 Nap'phréa — Groundwater Statistical Dashboard</h1>
-        <p>Temporal structure and extreme hydrological events of the piezometric level (SPLI).</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    df['date_index'] = pd.to_datetime(df['date_index'])  # adjust column name
-    df = df.set_index('date_index')
-
     df = df_processed
+    df['date_index'] = pd.to_datetime(df['date_index'])
+    df = df.set_index('date_index', drop=False)
+
     if df is None:
         st.warning("No dataset loaded. Set your config path or upload the merged CSV from the sidebar.")
         st.stop()
