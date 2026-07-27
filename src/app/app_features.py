@@ -34,17 +34,17 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
             """)
     st.markdown("""
                 The main objectives of this step were to investigate:
-                - **Data types:** identify the types of data present in the datasets after data collection (not shown)
-                - **Missing values:** assess and handle missing values (not shown)
-                - **Feature correlations:** evaluate correlations between features and determine whether any treatment was required
-                - **Feature engineering:** create new features based on domain expertise
+                \n- **Data types:** identify the types of data present in the datasets after data collection (not shown)
+                \n- **Missing values:** assess and handle missing values (not shown)
+                \n- **Feature correlations:** evaluate correlations between features and determine whether any treatment was required
+                \n- **Feature engineering:** create new features based on domain expertise
                 
                 
                 \n List of the features collected and their description:
-                # Weather Variables
+                \n\n Weather Variables
                 
                 | Variable | Unit | Description |
-                |---|---|---|
+                |----------|------|-------------|
                 | `weather_code` | WMO code | The most severe weather condition on a given day |
                 | `temperature_2m_max` / `temperature_2m_min` | °C (°F) | Maximum and minimum daily air temperature at 2 meters above ground |
                 | `apparent_temperature_max` / `apparent_temperature_min` | °C (°F) | Maximum and minimum daily apparent temperature |
@@ -58,7 +58,8 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 | `wind_speed_10m_max` / `wind_gusts_10m_max` | km/h (mph, m/s, knots) | Maximum wind speed and gusts on a day |
                 | `wind_direction_10m_dominant` | ° | Dominant wind direction |
                 | `shortwave_radiation_sum` | MJ/m² | The sum of solar radiation on a given day in Megajoules |
-                | `et0_fao_evapotranspiration` | mm | Daily sum of ET₀ Reference Evapotranspiration of a well watered grass field |""")
+                | `et0_fao_evapotranspiration` | mm | Daily sum of ET₀ Reference Evapotranspiration of a well watered grass field |
+                """)
     
     
     # Correlation of the numerical features
