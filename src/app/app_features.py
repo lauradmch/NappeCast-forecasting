@@ -68,7 +68,7 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 This section presents the weather dataset after collection and cleaning for features with 100% of NaN and non-informative data.
                 """)
     corr = df_cleaned.corr(method='pearson', numeric_only=True)
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(8, 6))
     sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
     ax.set_title('Correlation matrix between features before removal of correlated features')
     plt.tight_layout()
@@ -90,7 +90,7 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
     
     # Correlation of the numerical features after dropping columns with >= 70% of correlation
     corr = df_reduced.corr(method='pearson', numeric_only=True)
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(8, 6))
     sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
     ax.set_title('Correlation matrix between features after removal of correlated features')
     plt.tight_layout()
@@ -109,13 +109,26 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
                 potential relationships or correlations.
                 """)
 
-    col = st.selectbox('Select a column', [c for c in df_reduced.columns if c != 'niveau_nappe_eau'])
-    data = df_reduced[[col, 'niveau_nappe_eau']].dropna()
-
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.scatter(data[col], data['niveau_nappe_eau'], alpha=0.5)
-    ax.set_title(f'{col} vs niveau_nappe_eau')
-    ax.set_xlabel(col)
-    ax.set_ylabel('niveau_nappe_eau')
+    col = st.selectbox('Select an additional column', [c for c in df_reduced.columns if c != 'niveau_nappe_eau'])
+    data = df_reduced[['niveau_nappe_eau', col]].dropna()
+    fig, ax1 = plt.subplots(figsize=(10, 8))
+    
+    # Primary axis: 'niveau_nappe_eau'
+    ax1.plot(data.index, data['niveau_nappe_eau'], color='steelblue', label='niveau_nappe_eau')
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('niveau_nappe_eau', color='steelblue')
+    ax1.tick_params(axis='y', labelcolor='steelblue')
+    # Secondary axis : selected column
+    ax2 = ax1.twinx()
+    ax2.plot(data.index, data[col], color='coral', alpha=0.7, label=col)
+    ax2.set_ylabel(col, color='coral')
+    ax2.tick_params(axis='y', labelcolor='coral')
+    
+    # Combined legend
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+    
+    ax1.set_title(f'niveau_nappe_eau & {col} over time')
     plt.tight_layout()
     st.pyplot(fig)
