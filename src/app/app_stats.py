@@ -13,6 +13,8 @@ import streamlit as st
 import requests
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
+
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
