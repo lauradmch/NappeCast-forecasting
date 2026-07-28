@@ -12,7 +12,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from typing import Dict
+from contextlib import asynccontextmanager
+
+from typing import Dict, Optional
 from src.config import load_config
 from src.data.make_dataset import build_dataset
 from src.api.model_loader import get_model_info, load_model
@@ -32,11 +34,6 @@ CONFIG = load_config()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Remplace l'ancien @app.on_event("startup") (déprécié). Le code avant
-    le `yield` s'exécute au démarrage, celui après à l'arrêt -- ici on
-    n'a besoin que du démarrage.
-    """
     try:
         load_model()
     except Exception as e:
@@ -44,26 +41,11 @@ async def lifespan(app: FastAPI):
 
     yield  # l'API tourne ici -- rien à faire à l'arrêt pour ce projet
 
-
 app = FastAPI(
     title="NappCast",
     description="Sert les prédictions du modèle entraîné (source configurable : local, S3, MLflow).",
     version="1.0.0"
 )
-
-def _predict(df: pd.DataFrame):
-    try:
-        model = load_model()
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Modèle indisponible : {e}")
-
-    try:
-        predictions = model.predict(df)
-        probabilities = model.predict_proba(df)[:, 1]
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Erreur lors de la prédiction : {e}")
-
-    return predictions, probabilities
 
 @app.get("/health", response_model=HealthResponse, tags=["monitoring"])
 def health():

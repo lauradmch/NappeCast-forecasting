@@ -23,7 +23,7 @@ API_URL                 = os.getenv("API_URL", "http://localhost:8000")
 
 # ---------------------------- METHODES ---------------------------
 
-def render_predictions()-> None:
+def render_predictions(df_forecast: pd.DataFrame)-> None:
     if st.button("Vérifier l'état des modèles"):
         try:
             response = requests.get(f"{API_URL}/model/info/all", timeout=10)

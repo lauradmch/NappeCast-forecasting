@@ -9,7 +9,6 @@ le retélécharger à chaque requête. /model/reload force un rechargement.
 
 import logging
 import os
-import tempfile
 import joblib
 import pandas as pd
 import mlflow
@@ -17,28 +16,26 @@ import mlflow.sklearn
 import mlflow.prophet
 
 from pathlib import Path
-from typing import Any, Optional, Dict
+from typing import Any, Optional
 from src.config import load_config
 
 logger = logging.getLogger(__name__)
 
 CONFIG = load_config()
 
+# Dispatch du flavor MLflow selon le type de modèle
 _MLFLOW_LOADERS = {
-    "LinearRegression": mlflow.sklearn.load_model,
     "XGBoost": mlflow.sklearn.load_model,
     "Prophet": mlflow.prophet.load_model,
 }
 
-_MODELS = {
-    "Linear": CONFIG["mlflow"]["registered_model_name"]["LinearRegression"],
-    "XGBoost": CONFIG["mlflow"]["registered_model_name"]["XGBoost"],
-}
-
 _cache: dict = {}  # clé : (source, model_type)
 
-def _load_from_local() -> Any:
-    model_path = Path(CONFIG["paths"]["models"]) / CONFIG["paths"]["model_filename"]
+def _load_from_local(model: Optional[str] = None) -> Any:
+    model_type = model or CONFIG["mlflow"].get("active_model", "XGBoost")
+    filename = CONFIG["paths"]["local_model_filenames"][model_type]
+    model_path = Path(CONFIG["paths"]["models"]) / filename
+
     if not model_path.exists():
         raise FileNotFoundError(f"{model_path} introuvable.")
     return joblib.load(model_path)
@@ -60,6 +57,12 @@ def _load_from_mlflow(model: Optional[str] = None) -> Any:
     loaded_model = _MLFLOW_LOADERS[model_type](model_uri)
     logger.info("Modèle chargé depuis MLflow : %s (type=%s)", model_uri, model_type)
     return loaded_model
+
+
+_LOADERS = {
+    "local": _load_from_local,
+    "mlflow": _load_from_mlflow,
+}
 
 
 def load_model(model: Optional[str] = None, source: Optional[str] = None, force_reload: bool = False) -> Any:

@@ -18,6 +18,10 @@ paths:
     interim: "data/interim"
     processed: "data/processed"
     external: "data/external"
+  models: "models"
+  local_model_filenames:
+    XGBoost: "xgboost.joblib"
+    Prophet: "prophet.joblib"
   interim_filename: "dataset_interim" 
   processed_filename: "dataset_processed"
   weather:
@@ -28,8 +32,6 @@ paths:
   piezometer:
     raw_filename: "piezometer_raw"
     interim_filename: "piezometer_cleaned"
-  model_filename: "model.joblib"
-  predictions_filename: "reports/predictions"
   
 s3:
   bucket: "nappecast"
@@ -70,9 +72,8 @@ training:
 mlflow:
   experiment_name: "nappecast"
   default_tracking_uri: "http://13.37.240.162:5000/"
-  active_model: "XGBoost"
+  active_model: "Prophet"
   model_alias: "production"
   registered_model_name:
-    LinearRegression: "nappecast_Linear"
     XGBoost: "nappecast_XGBoost"
     Prophet: "nappecast_Prophet"
