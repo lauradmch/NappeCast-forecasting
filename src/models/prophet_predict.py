@@ -137,6 +137,7 @@ def train_and_log(daily: pd.DataFrame) -> str:
         mlflow.log_metrics({
             "rmse": metrics_df["rmse"].mean(),
             "mae": metrics_df["mae"].mean(),
+            "mape": metrics_df["mape"].mean(),
             "r2": r2,
             "std_y": std_y,
             "rmse_std_ratio": rmse_ratio,
