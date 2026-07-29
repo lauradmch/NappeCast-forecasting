@@ -10,4 +10,5 @@ CMD mlflow server \
     --host 0.0.0.0 \
     --port 5000 \
     --workers 1 \
-    --allowed-hosts "*"
+    --allowed-hosts "*" \
+    --cors-allowed-origins "http://51.45.56.7:5000"

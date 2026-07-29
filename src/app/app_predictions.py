@@ -269,77 +269,10 @@ def forecast_spli(daily_target: pd.Series, forecast: pd.DataFrame, last_train) -
 
 # ---------------------------- METHODS ---------------------------
 
-def render_predictions(df_prediction: pd.DataFrame) -> None:
-
-    # ============ Prophet forecast (computed in the app) ============
-    st.subheader("Groundwater level forecast (Prophet)")
-
-    H = st.slider(
-        "Forecast horizon (days)",
-        min_value=14, max_value=30, value=30, step=1,
-        help="H sets both the regressor lag and the horizon.",
-    )
-
-    if st.button("Run forecast"):
-        with st.spinner("Training + Prophet forecast in progress..."):
-            try:
-                daily = build_daily(df_prediction)
-                df_prophet, forecast = fit_and_forecast(daily, H)
-                fig = plot_forecast(df_prophet, forecast, H)
-                st.plotly_chart(fig, use_container_width=True)
-
-                # Table of the H forecast days
-                last_train = df_prophet["ds"].max()
-                fut = forecast[forecast["ds"] > last_train]
-                st.dataframe(
-                    fut[["ds", "yhat", "yhat_lower", "yhat_upper"]]
-                    .rename(columns={
-                        "ds": "Date", "yhat": "Forecast",
-                        "yhat_lower": "Lower bound", "yhat_upper": "Upper bound",
-                    })
-                )
-
-                # ---- SPLI of the forecast period ----
-                st.markdown("**Forecast SPLI (Standardised Piezometric Level Index)**")
-                st.caption(
-                    "Each forecast month standardised against the same calendar month "
-                    "in prior years (Gringorten normal-scores, same recipe as the SPLI "
-                    "in the stats tab). Transition months are completed with observed + "
-                    "forecast days; forecast-only months need > 14 forecast days."
-                )
-                spli_rows = forecast_spli(daily[TARGET], forecast, last_train)
-                if not spli_rows:
-                    st.info(
-                        "No forecast month qualifies for an SPLI "
-                        "(forecast-only months need more than 14 days)."
-                    )
-                else:
-                    cols = st.columns(len(spli_rows))
-                    for col, r in zip(cols, spli_rows):
-                        label, color = spli_label(r["spli"])
-                        if r["mode"] == "blended":
-                            coverage = f"whole month · {r['obs_days']} obs + {r['fc_days']} forecast days"
-                        else:
-                            coverage = f"forecast-only · {r['fc_days']}/{r['days_in_month']} days"
-                        col.metric(
-                            r["month"].strftime("%B %Y"),
-                            f"{r['spli']:+.2f}",
-                            delta=label, delta_color="off",
-                        )
-                        col.markdown(
-                            f"<span style='color:{color};font-weight:600'>{label}</span>"
-                            f"<br><span style='color:grey;font-size:0.8em'>{coverage}</span>",
-                            unsafe_allow_html=True,
-                        )
-            except (KeyError, ValueError) as e:
-                st.error(f"Could not compute the forecast: {e}")
-
-    st.divider()
-
-    # ============ API diagnostics (existing) ============
-    if st.button("Check model status"):
+def render_predictions(df_forecast: pd.DataFrame)-> None:
+    if st.button("Vérifier l'état des modèles"):
         try:
-            response = requests.get(f"{API_URL}/model/info/all", timeout=10)
+            response = requests.get(f"{API_URL}/model/info/all", timeout=30)
             response.raise_for_status()
             info = response.json()
 
@@ -359,8 +292,8 @@ def render_predictions(df_prediction: pd.DataFrame) -> None:
         except requests.exceptions.RequestException as e:
             st.error(f"Could not retrieve model status: {e}")
 
-    if st.button("Compare the 3 models"):
-        with st.spinner("Computing predictions..."):
+    if st.button("Comparer les 3 modèles"):
+        with st.spinner("Calcul des prédictions en cours..."):
             try:
                 response = requests.get(f"{API_URL}/compare", timeout=60)
                 response.raise_for_status()

@@ -120,7 +120,10 @@ async def compare_models():
 
 @app.get("/model/info/all", response_model=Dict[str, ModelInfoResponse], tags=["monitoring"])
 def model_info_all(source: Optional[str] = None):
-    """État des 3 modèles (LinearRegression, XGBoost, Prophet) en une seule requête."""
+    """
+    État des modèles en une seule requête.
+    """
+    
     return {
         model_type: get_model_info(model=model_type, source=source)
         for model_type in CONFIG["mlflow"]["registered_model_name"].keys()

@@ -11,6 +11,7 @@ api:
     url_forecast: ""
     start_date: "2017-01-01"
   forecast_horizon: 30
+  model_source: "mlflow"
     
 paths:
   data:
@@ -72,7 +73,7 @@ training:
 mlflow:
   experiment_name: "nappecast"
   default_tracking_uri: "http://13.37.240.162:5000/"
-  active_model: "Prophet"
+  active_model: "prophet"
   model_alias: "production"
   registered_model_name:
     XGBoost: "nappecast_XGBoost"
