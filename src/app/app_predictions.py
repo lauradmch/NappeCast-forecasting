@@ -151,6 +151,7 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> g
     """
     last_train = df_prophet["ds"].max()
     fut = forecast[forecast["ds"] > last_train]
+    hist = forecast[forecast.ds <= last_train]
 
     # Recent observed history only
     recent_cut = last_train - pd.Timedelta(days=HISTORY_DAYS)
@@ -174,15 +175,21 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> g
     # --- Forecast (+H days)
     fig.add_trace(go.Scatter(
         x=fut["ds"], y=fut["yhat"],
-        mode="lines", line=dict(color="#d62728", width=2.5),
+        mode="lines", line=dict(color="#d62728", width=2.8),
         name=f"Forecast (+{H}d)",
     ))
 
     # --- Recent observed (ground truth)
     fig.add_trace(go.Scatter(
         x=obs["ds"], y=obs["y"],
-        mode="markers", marker=dict(color="#0f5792", size=6),
+        mode="markers", marker=dict(color="#0f5792", size=5),
         name="Observed",
+    ))
+    # --- Prediction on history
+    fig.add_trace(go.Scatter(
+        x=hist["ds"], y=hist["y"],
+        mode="markers", marker=dict(color="#d6272789", size=5),
+        name=f"Prediction",
     ))
 
     # --- Vertical line = last training date
@@ -255,6 +262,7 @@ def forecast_spli(daily_target: pd.Series, forecast: pd.DataFrame, last_train) -
     """
     obs = daily_target.dropna()                                 # observed daily GWL
     fut = forecast[forecast["ds"] > last_train].set_index("ds")["yhat"]
+    hist = forecast[forecast.ds <= last_train].set_index("ds")["yhat"]
     combined = pd.concat([obs, fut])                            # observed + forecast, no overlap
     hist_monthly = obs.resample("MS").mean()                   # historical reference
 
@@ -345,48 +353,3 @@ def render_predictions(df_prediction: pd.DataFrame) -> None:
                         )
             except (KeyError, ValueError) as e:
                 st.error(f"Could not compute the forecast: {e}")
-
-    st.divider()
-
-    # ============ API diagnostics (existing) ============
-    if st.button("Check model status"):
-        try:
-            response = requests.get(f"{API_URL}/model/info/all", timeout=10)
-            response.raise_for_status()
-            info = response.json()
-
-            rows = []
-            for model_type, data in info.items():
-                rows.append({
-                    "Model": model_type,
-                    "Loaded": "✅" if data["loaded"] else "❌",
-                    "Source": data["source"],
-                    "Loaded at": data["loaded_at"] or "-",
-                    "Detail": data["detail"] or "-",
-                })
-
-            df_status = pd.DataFrame(rows)
-            st.table(df_status)
-
-        except requests.exceptions.RequestException as e:
-            st.error(f"Could not retrieve model status: {e}")
-
-    if st.button("Compare the 3 models"):
-        with st.spinner("Computing predictions..."):
-            try:
-                response = requests.get(f"{API_URL}/compare", timeout=60)
-                response.raise_for_status()
-                results = response.json()
-
-                rows = []
-                for model_type, res in results.items():
-                    if "error" in res:
-                        st.warning(f"{model_type}: error — {res['error']}")
-                        continue
-                    rows.append({"Model": model_type, "Date": res["date"], "Prediction": res["prediction"]})
-
-                df_compare = pd.DataFrame(rows)
-                st.dataframe(df_compare)
-
-            except requests.exceptions.RequestException as e:
-                st.error(f"Error calling the API: {e}")
