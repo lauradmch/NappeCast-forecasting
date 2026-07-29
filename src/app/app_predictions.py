@@ -154,8 +154,8 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> g
     min_date = pd.Timestamp("2026-01-01")
     hist = forecast[
         (forecast["ds"] <= last_train) &
-        (forecast["ds"] >= min_date)  # Only include rows where "ds" is >= min_date
-    ].set_index("ds")["yhat"]
+        (forecast["ds"] >= min_date)
+    ][["ds", "yhat"]]
 
     # Recent observed history only
     recent_cut = last_train - pd.Timedelta(days=HISTORY_DAYS)
