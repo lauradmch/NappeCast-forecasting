@@ -175,7 +175,7 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> g
     # --- Forecast (+H days)
     fig.add_trace(go.Scatter(
         x=fut["ds"], y=fut["yhat"],
-        mode="lines", line=dict(color="#d62728", width=2.8),
+        mode="lines", line=dict(color="#d62728", width=3),
         name=f"Forecast (+{H}d)",
     ))
 
@@ -187,7 +187,7 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> g
     ))
     # --- Prediction on history
     fig.add_trace(go.Scatter(
-        x=hist["ds"], y=hist["y"],
+        x=hist["ds"], y=hist["yhat"],
         mode="markers", marker=dict(color="#d6272789", size=5),
         name=f"Prediction",
     ))
@@ -310,8 +310,11 @@ def render_predictions(df_prediction: pd.DataFrame) -> None:
         horizontal=True,
         help="H sets the regressor lag, the horizon, and its own hyperparameter config.",
     )
+    run = st.button("Run forecast")
 
-    if st.button("Run forecast"):
+    # auto-run once on first load with default params
+    if run or not st.session_state.get("forecast_ran", False):
+        st.session_state["forecast_ran"] = True
         with st.spinner("Training + Prophet forecast in progress..."):
             try:
                 daily = build_daily(df_prediction)
