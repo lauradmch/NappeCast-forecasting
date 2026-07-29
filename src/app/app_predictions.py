@@ -269,7 +269,25 @@ def forecast_spli(daily_target: pd.Series, forecast: pd.DataFrame, last_train) -
 
 # ---------------------------- METHODS ---------------------------
 
-def render_predictions(df_forecast: pd.DataFrame)-> None:
+def render_predictions(df_processed: pd.DataFrame):
+    if df_processed is None or df_processed.empty:
+        st.warning("No data available for the forecast.")
+        return    
+    daily = build_daily(df_processed)
+    H = st.slider("Horizon (days)", 1, 30, 14)  
+
+    with st.spinner("Training Prophet…"):
+        # Forecast
+        df_prophet, forecast = fit_and_forecast(daily, H)
+
+        fig = plot_forecast(df_prophet, forecast, H)
+        st.plotly_chart(fig)
+
+        # SPLI on forecasted month
+        spli_forecast = pd.DataFrame(forecast_spli(daily[TARGET], forecast, df_prophet["ds"].max()))
+        spli_forecast["category"] = spli_forecast["spli"].apply(lambda v: spli_label(v)[0])
+        st.dataframe(spli_forecast)
+
     if st.button("Vérifier l'état des modèles"):
         try:
             response = requests.get(f"{API_URL}/model/info/all", timeout=30)
