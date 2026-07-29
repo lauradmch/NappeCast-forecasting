@@ -1,5 +1,5 @@
 """
-Content of the Predictions/Forecasting tab
+Content of the Documentation / Predictions tab
 
 """
 
@@ -38,7 +38,7 @@ DAILY_FEATURES = [
 ]
 
 # Window of observed history shown on the chart (days)
-HISTORY_DAYS = 180
+HISTORY_DAYS = 220
 
 # Silence the noisy Prophet/cmdstanpy logs in the Streamlit console
 logging.getLogger("prophet").setLevel(logging.WARNING)
@@ -96,21 +96,42 @@ def build_frames(daily: pd.DataFrame, H: int):
     return df_prophet, future, regressor_cols
 
 
+# Per-horizon Prophet hyperparameters. Each allowed H has its own config,
+# so H=14 and H=30 can be tuned independently. Baseline values are identical;
+# adjust each block (e.g. changepoint_prior_scale) as you validate each horizon.
+HYPERPARAMS = {
+    14: {
+        "seasonality_mode": "additive",
+        "weekly_seasonality": False,
+        "daily_seasonality": False,
+        "yearly_seasonality": True,
+        "interval_width": 0.80,          # -> 80% interval
+        "changepoint_prior_scale": 0.1,
+        "seasonality_prior_scale": 0.1,
+        "changepoint_range": 0.8,
+    },
+    30: {
+        "seasonality_mode": "additive",
+        "weekly_seasonality": False,
+        "daily_seasonality": False,
+        "yearly_seasonality": True,
+        "interval_width": 0.80,          # -> 80% interval
+        "changepoint_prior_scale": 0.3,
+        "seasonality_prior_scale": 10,
+        "changepoint_range": 0.8,
+    },
+}
+
+
 @st.cache_data(show_spinner=False)
 def fit_and_forecast(daily: pd.DataFrame, H: int):
     """
     Retrains Prophet and predicts. Cached (@st.cache_data): only re-runs
     when `daily` or `H` change — not on every Streamlit rerun.
+    Uses the hyperparameter config bound to this H (HYPERPARAMS[H]).
     Returns (df_prophet, forecast).
     """
-    params = {
-        "seasonality_mode": "additive",
-        "weekly_seasonality": False,
-        "daily_seasonality": False,
-        "yearly_seasonality": True,
-        "interval_width": 0.95,
-        "changepoint_prior_scale": 0.05,
-    }
+    params = HYPERPARAMS[H]
 
     df_prophet, future, regressor_cols = build_frames(daily, H)
 
@@ -191,8 +212,8 @@ def spli_label(v: float):
     if v <= -1.5:  return "Severe drought",   "#b2182b"
     if v <= -1.0:  return "Moderate drought", "#ef8a62"
     if v <  1.0:   return "Normal",           "#4d4d4d"
-    if v <  1.5:   return "Moderately humid",   "#67a9cf"
-    if v <  2.0:   return "Very humid",         "#2166ac"
+    if v <  1.5:   return "Moderately wet",   "#67a9cf"
+    if v <  2.0:   return "Very wet",         "#2166ac"
     return "Extremely wet", "#053061"
 
 
@@ -269,28 +290,68 @@ def forecast_spli(daily_target: pd.Series, forecast: pd.DataFrame, last_train) -
 
 # ---------------------------- METHODS ---------------------------
 
-def render_predictions(df_processed: pd.DataFrame):
-    if df_processed is None or df_processed.empty:
-        st.warning("No data available for the forecast.")
-        return    
-    daily = build_daily(df_processed)
-    H = st.slider("Horizon (days)", 1, 30, 14)  
+def render_predictions(df_prediction: pd.DataFrame) -> None:
 
-    with st.spinner("Training Prophet…"):
-        # Forecast
-        df_prophet, forecast = fit_and_forecast(daily, H)
+    # ============ Prophet forecast (computed in the app) ============
+    st.subheader("Groundwater level forecast (Prophet)")
 
-        fig = plot_forecast(df_prophet, forecast, H)
-        st.plotly_chart(fig)
+    H = st.radio(
+        "Forecast horizon (days)",
+        options=[14, 30],
+        index=1,
+        horizontal=True,
+        help="H sets the regressor lag, the horizon, and its own hyperparameter config.",
+    )
 
-        # SPLI on forecasted month
-        spli_forecast = pd.DataFrame(forecast_spli(daily[TARGET], forecast, df_prophet["ds"].max()))
-        spli_forecast["category"] = spli_forecast["spli"].apply(lambda v: spli_label(v)[0])
-        st.dataframe(spli_forecast)
+    if st.button("Run forecast"):
+        with st.spinner("Training + Prophet forecast in progress..."):
+            try:
+                daily = build_daily(df_prediction)
+                df_prophet, forecast = fit_and_forecast(daily, H)
+                fig = plot_forecast(df_prophet, forecast, H)
+                st.plotly_chart(fig, use_container_width=True)
 
-    if st.button("Vérifier l'état des modèles"):
+                last_train = df_prophet["ds"].max()
+
+                # ---- SPLI of the forecast period ----
+                st.markdown("**Forecast SPLI (Standardised Piezometric Level Index)**")
+                st.caption(
+                    "Each forecast month standardised against the same calendar month "
+                    "in prior years. Transition months are completed with observed + "
+                    "forecast days; forecast-only months need > 14 forecast days."
+                )
+                spli_rows = forecast_spli(daily[TARGET], forecast, last_train)
+                if not spli_rows:
+                    st.info(
+                        "No forecast month qualifies for an SPLI "
+                        "(forecast-only months need more than 14 days)."
+                    )
+                else:
+                    for r in spli_rows:
+                        label, color = spli_label(r["spli"])
+                        b_month, b_spli, b_sev = st.columns(3)
+                        # Month box
+                        b_month.metric("Month", r["month"].strftime("%B %Y"))
+                        # SPLI value box (same st.metric look as app_stats)
+                        b_spli.metric("SPLI", f"{r['spli']:+.2f}")
+                        # Severity box: name + colour
+                        b_sev.markdown(
+                            f"<div style='border:1px solid {color};border-radius:10px;"
+                            f"padding:0.4rem 1rem;background:{color}1a;'>"
+                            f"<div style='color:grey;font-size:0.8rem'>Severity</div>"
+                            f"<div style='color:{color};font-weight:700;font-size:1.25rem'>"
+                            f"{label}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+            except (KeyError, ValueError) as e:
+                st.error(f"Could not compute the forecast: {e}")
+
+    st.divider()
+
+    # ============ API diagnostics (existing) ============
+    if st.button("Check model status"):
         try:
-            response = requests.get(f"{API_URL}/model/info/all", timeout=30)
+            response = requests.get(f"{API_URL}/model/info/all", timeout=10)
             response.raise_for_status()
             info = response.json()
 
@@ -310,8 +371,8 @@ def render_predictions(df_processed: pd.DataFrame):
         except requests.exceptions.RequestException as e:
             st.error(f"Could not retrieve model status: {e}")
 
-    if st.button("Comparer les 3 modèles"):
-        with st.spinner("Calcul des prédictions en cours..."):
+    if st.button("Compare the 3 models"):
+        with st.spinner("Computing predictions..."):
             try:
                 response = requests.get(f"{API_URL}/compare", timeout=60)
                 response.raise_for_status()
