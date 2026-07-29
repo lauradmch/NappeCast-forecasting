@@ -136,6 +136,5 @@ with tab_analyse:
     render_stats(df_processed)
 
 with tab_prediction:
-    df_forecast= df_processed.copy()
     render_predictions(df_processed)
     

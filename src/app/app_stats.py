@@ -238,7 +238,7 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
 
 
 def render_stats(df_processed: pd.DataFrame):
-    df = df_processed
+    df = df_processed.copy()
     df['date_index'] = pd.to_datetime(df['date_index'])
     df = df.set_index('date_index', drop=False)
 
