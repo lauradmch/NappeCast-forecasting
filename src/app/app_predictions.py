@@ -151,7 +151,7 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> g
     """
     last_train = df_prophet["ds"].max()
     fut = forecast[forecast["ds"] > last_train]
-    hist = forecast[forecast.ds <= last_train]
+    hist = forecast[forecast["ds"] <= last_train]
 
     # Recent observed history only
     recent_cut = last_train - pd.Timedelta(days=HISTORY_DAYS)
@@ -262,7 +262,7 @@ def forecast_spli(daily_target: pd.Series, forecast: pd.DataFrame, last_train) -
     """
     obs = daily_target.dropna()                                 # observed daily GWL
     fut = forecast[forecast["ds"] > last_train].set_index("ds")["yhat"]
-    hist = forecast[forecast.ds <= last_train].set_index("ds")["yhat"]
+    hist = forecast[forecast["ds"] <= last_train].set_index("ds")["yhat"]
     combined = pd.concat([obs, fut])                            # observed + forecast, no overlap
     hist_monthly = obs.resample("MS").mean()                   # historical reference
 
