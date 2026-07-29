@@ -17,7 +17,6 @@ import plotly.express as px
 # ---------------------------- METHODES ---------------------------
 
 def render_documentation()-> None:
-    st.write("Documentations, définition etc...")
     st.header("Purpose & Objectives")
     st.markdown("<a id='Purpose'></a>", unsafe_allow_html=True)
     st.subheader("Purpose")
@@ -42,8 +41,7 @@ def render_documentation()-> None:
                 identifying the key drivers of depletion and recharge
                 \n- **Predictive modelling* — forecasting future water levels from current weather data, enabling 
                 anticipation rather than reaction
-                \n\n
-                The ability to predict critical aquifer levels ahead of time unlocks two concrete management levers:
+                \n\nThe ability to predict critical aquifer levels ahead of time unlocks two concrete management levers:
                 \n-**Demand prioritisation** — anticipating water allocation conflicts between user groups before a crisis 
                 point is reached, slowing depletion rates
                 \n- **Proactive recharge planning** — scheduling aquifer replenishment operations in advance, rather 
@@ -63,8 +61,7 @@ def render_documentation()-> None:
             indicating whether each record is validated, estimated, or provisional.
             \n- **Data Producer** - Identification of the organisation responsible for collecting and 
             submitting the measurement.
-            \n\n
-            **Open-meteo data** (capturing many different meteorological data at a specify localization) were
+            \n\n**Open-meteo data** (capturing many different meteorological data at a specify localization) were
             collected from the Open-Meto's API (https://open-meteo.com/en/docs). List of data collected:
             \n- **Temperature & Comfort** - Daily maximum and minimum air temperature, apparent (felt) temperature, 
             dew point, and relative humidity
