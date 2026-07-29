@@ -289,20 +289,21 @@ def render_stats(df_processed: pd.DataFrame):
     )
     with st.spinner("Fitting STL decomposition…"):
         st.plotly_chart(fig_stl(df[GWL]), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.subheader("Standardised Piezometric Level Index (SPLI)")
+        st.markdown(
+            '<p class="caption">SPLI standardises each month against its own history: 0 is the '
+            'historical median, blue is wetter, red drier. Dashed lines mark the standard drought '
+            'severity thresholds (moderate −1, severe −1.5, extreme −2). Read directly from the '
+            '<code>SPLI</code> column.</p>',
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(fig_spli_monthly(spli_m), use_container_width=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
-    
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("Standardised Piezometric Level Index (SPLI)")
-    st.markdown(
-        '<p class="caption">SPLI standardises each month against its own history: 0 is the '
-        'historical median, blue is wetter, red drier. Dashed lines mark the standard drought '
-        'severity thresholds (moderate −1, severe −1.5, extreme −2). Read directly from the '
-        '<code>SPLI</code> column.</p>',
-        unsafe_allow_html=True,
-    )
-    st.plotly_chart(fig_spli_monthly(spli_m), use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-    
+        
     st.divider()
     
     # ---- Section 2: Extreme events ----
