@@ -349,13 +349,6 @@ def render_predictions(df_prediction: pd.DataFrame) -> None:
                         # SPLI value box (same st.metric look as app_stats)
                         b_spli.metric("SPLI", f"{r['spli']:+.2f}")
                         # Severity box: name + colour
-                        b_sev.markdown(
-                            f"<div style='border:1px solid {color};border-radius:10px;"
-                            f"padding:0.4rem 1rem;background:{color}1a;'>"
-                            f"<div style='color:grey;font-size:0.8rem'>Severity</div>"
-                            f"<div style='color:{color};font-weight:700;font-size:1.25rem'>"
-                            f"{label}</div></div>",
-                            unsafe_allow_html=True,
-                        )
+                        b_sev.metric("Severity", f"{label}")      
             except (KeyError, ValueError) as e:
                 st.error(f"Could not compute the forecast: {e}")
