@@ -188,7 +188,7 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> g
     # --- Prediction on history
     fig.add_trace(go.Scatter(
         x=hist["ds"], y=hist["yhat"],
-        mode="markers", marker=dict(color="#d6272789", size=5),
+        mode="markers", marker=dict(color="#b83333", size=5),
         name=f"Prediction",
     ))
 
