@@ -11,7 +11,16 @@ en fonction de `region` et `date` — voir src/api/main.py.
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+class ModelInfoResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    loaded: bool
+    source: Optional[str] = None
+    model_type: Optional[str] = None
+    loaded_at: Optional[str] = None
+    detail: Optional[str] = None
 
 
 class Observation(BaseModel):
@@ -34,14 +43,6 @@ class BatchObservations(BaseModel):
 
 class BatchPredictionResponse(BaseModel):
     predictions: List[PredictionResponse]
-
-
-class ModelInfoResponse(BaseModel):
-    loaded: bool
-    source: Optional[str] = None
-    model_type: Optional[str] = None
-    loaded_at: Optional[str] = None
-    detail: Optional[str] = None
 
 
 class HealthResponse(BaseModel):

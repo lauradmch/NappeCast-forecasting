@@ -9,11 +9,15 @@ import ast
 import pandas as pd
 import streamlit as st
 import requests
+import os
 import plotly.express as px 
 
+from src.config import load_config
 
 # ---------------------------- VARIABLES ---------------------------
+CONFIG = load_config()
 
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 # ---------------------------- METHODES ---------------------------
 def _parse_list_str(value: str) -> str:
@@ -85,3 +89,25 @@ def render_sidebar(df_station: pd.DataFrame,
 
             except Exception as e:
                 st.error(f"API indisponible : {e}")
+
+        if st.button("Vérifier l'état des modèles"):
+            try:
+                response = requests.get(f"{API_URL}/model/info/all", timeout=30)
+                response.raise_for_status()
+                info = response.json()
+
+                rows = []
+                for model_type, data in info.items():
+                    rows.append({
+                        "Model": model_type,
+                        "Loaded": "✅" if data["loaded"] else "❌",
+                        "Source": data["source"],
+                        "Loaded at": data["loaded_at"] or "-",
+                        "Detail": data["detail"] or "-",
+                    })
+
+                df_status = pd.DataFrame(rows)
+                st.table(df_status)
+
+            except requests.exceptions.RequestException as e:
+                st.error(f"Could not retrieve model status: {e}")

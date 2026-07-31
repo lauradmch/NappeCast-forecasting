@@ -28,9 +28,12 @@ services:
       context: .                    # racine du projet, englobe tout src/
       dockerfile: src/api/Dockerfile
     environment:
-      - MLFLOW_TRACKING_URI=http://13.37.240.162:5000
-    expose:
-      - "8000"
+      - MLFLOW_TRACKING_URI=http://51.45.56.7:5000
+      - PIPELINE_SECRET=${PIPELINE_SECRET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    ports:
+      - "8000:8000"
     restart: unless-stopped
 
 volumes:

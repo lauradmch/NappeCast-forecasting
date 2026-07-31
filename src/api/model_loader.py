@@ -42,7 +42,7 @@ def _load_from_local(model: Optional[str] = None) -> Any:
 
 
 def _load_from_mlflow(model: Optional[str] = None) -> Any:
-    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI") or CONFIG["mlflow"]["default_tracking_uri"]
+    tracking_uri = CONFIG["mlflow"]["internal_tracking_uri"]
     mlflow.set_tracking_uri(tracking_uri)
 
     model_type = model or CONFIG["mlflow"].get("active_model", "XGBoost")

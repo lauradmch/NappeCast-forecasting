@@ -72,8 +72,9 @@ training:
 
 mlflow:
   experiment_name: "nappecast"
-  default_tracking_uri: "http://13.37.240.162:5000/"
-  active_model: "prophet"
+  default_tracking_uri: "http://51.45.56.7:5000"
+  internal_tracking_uri: "http://172.31.32.79:5000" 
+  active_model: "Prophet"
   model_alias: "production"
   registered_model_name:
     XGBoost: "nappecast_XGBoost"

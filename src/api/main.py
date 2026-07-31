@@ -7,8 +7,9 @@ import pandas as pd
 import boto3
 import urllib 
 import logging
+import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -17,6 +18,9 @@ from contextlib import asynccontextmanager
 from typing import Dict, Optional
 from src.config import load_config
 from src.data.make_dataset import build_dataset
+from src.data.feat_dataset import feat_dataset
+from src.helper.aws import upload_file_to_s3
+
 from src.api.model_loader import get_model_info, load_model
 from src.api.schemas import (
     BatchObservations,
@@ -32,6 +36,8 @@ logger = logging.getLogger(__name__)
 
 CONFIG = load_config()
 
+PIPELINE_SECRET = os.environ["PIPELINE_SECRET"]
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -44,8 +50,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="NappCast",
     description="Sert les prédictions du modèle entraîné (source configurable : local, S3, MLflow).",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
+
+def verify_secret(x_pipeline_secret: str = Header(...)):
+    if x_pipeline_secret != PIPELINE_SECRET:
+        raise HTTPException(status_code=403, detail="Secret invalide")
+
 
 @app.get("/health", response_model=HealthResponse, tags=["monitoring"])
 def health():
@@ -58,13 +70,21 @@ def health():
 @app.get("/data")
 async def get_data():
     print("Fetching Data")
-    df_station, df_processed = build_dataset(skip_historical=True)
+    df_station, df_interim = build_dataset(skip_historical=True, save_csv=True)
+    df_processed = feat_dataset(save_csv=True)
 
     response = {
         "stations": df_station.to_json(orient="split"),
         "processed": df_processed.to_json(orient="split")
     }
     return response
+
+@app.post("/pipeline/collect")
+async def collect_pipeline(_: None = Depends(verify_secret)):
+    print("Fetching Data")
+    df_station, df_interim = build_dataset(skip_historical=True, save_csv=True)
+    df_processed = feat_dataset(save_csv=True)
+    return {"status": "ok", "stations": len(df_station), "processed_rows": len(df_processed)}
 
 
 @app.get("/model/info", response_model=ModelInfoResponse, tags=["monitoring"])

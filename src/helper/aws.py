@@ -35,7 +35,7 @@ def upload_file_to_s3(local_file: Path,
     key_prefix="external/meteo").
     """
     if not (os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY")):
-        logger.warning("Credentials AWS absents — upload S3 de %s ignoré.", local_file.name)
+        logger.warning("Credentials AWS absents — upload S3 de %s ignoré.", Path(local_file).name)
         return
 
     import boto3
@@ -48,7 +48,7 @@ def upload_file_to_s3(local_file: Path,
     else:
         s3_key = f"{key_prefix}/{name}"
 
-    s3 = boto3.client("s3")
+    s3 = boto3.client("s3", region_name="eu-west-3")
     s3.upload_file(str(local_file), bucket, s3_key)
     logger.info("Fichier persisté sur s3://%s/%s", bucket, s3_key)
 
@@ -62,7 +62,7 @@ def save_raw_data_to_s3(df: pd.DataFrame,
     (paths.s3)
     """
     output_path.mkdir(parents=True, exist_ok=True)
-    output_file =  f"{output_path}/{file_name}.csv" 
+    output_file = output_path / f"{file_name}.csv" 
     df.to_csv(output_file, index=False)
 
     s3_cfg = CONFIG.get("s3")
