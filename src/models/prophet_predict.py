@@ -83,8 +83,8 @@ def train_and_log(daily: pd.DataFrame) -> str:
     mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME"))
 
     #  Future-aware lagged regressors: Extends the date range by 30 days 
-    H = 30                                    # days ahead == lag 
-    period = 90
+    H = 14                                    # days ahead == lag 
+    period = 45
     future_idx = pd.date_range(daily.index.min(), periods=len(daily) + H, freq="D")
     df_ext = daily.reindex(future_idx)        # H new empty rows at the end
     # shifting values forward by 30 days
@@ -107,7 +107,7 @@ def train_and_log(daily: pd.DataFrame) -> str:
         "weekly_seasonality": False,
         "daily_seasonality":False,
         "yearly_seasonality":True, 
-        "interval_width":0.80,
+        "interval_width":0.95,
         "changepoint_prior_scale":0.05
     }
 
