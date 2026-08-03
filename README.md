@@ -3,14 +3,13 @@
 **Short-term groundwater-level forecasting from open piezometric and meteorological data.**
 
 NappeCast turns data from open APIs into a daily forecast of water table level, served through a FastAPI backend and a Streamlit dashboard on AWS.
+In France, aquifer recharge is currently piloted by empirical rules and administrative thresholds that often trigger an intervention after a deficit occurs. NappeCast aims to support groundwater recharge using forecasts.
 
 **Data sources:** [Hub'Eau](https://hubeau.eaufrance.fr/page/api-piezometrie) (piezometry) and [Open-Meteo](https://open-meteo.com/en/docs) (weather archive)
 
 **Live demo:** https://nappecast.mapflowing.com/
 
-Aquifer recharge is currently piloted by empirical rules and administrative thresholds that often trigger an intervention after the deficit occurs. NappeCast aims to support groundwater recharge using forecasts.
-
-End-of-course project for the **Jedha "Architecte en Intelligence Artificielle"** certification (RNCP41993)
+This is an end-of-course project for the **Jedha "Architecte en Intelligence Artificielle"** certification (RNCP41993)
 
 ---
 
@@ -21,11 +20,9 @@ End-of-course project for the **Jedha "Architecte en Intelligence Artificielle"*
 - [Repository structure](#repository-structure)
 - [Data & feature engineering](#data--feature-engineering)
 - [Modelling](#modelling)
-- [Quickstart](#quickstart)
 - [API reference](#api-reference)
 - [MLOps](#mlops)
 - [Limitations & next steps](#limitations--next-steps)
-- [RNCP competency mapping](#rncp-competency-mapping)
 - [References](#references)
 
 ---
