@@ -236,6 +236,8 @@ def refit_best(daily, H, best_row):
     tuned = {k: best_row[k] for k in PARAM_GRID}
     params = {**BASE_PARAMS, **tuned}
 
+    # TODO : enregistrer le modele choisi localement
+
     with mlflow.start_run(run_name=f"prophet-forecast-best-H{H}"):
         mlflow.log_params({**params, "horizon_days": H})
         model = fit_prophet(df_prophet, regressor_cols, params)
@@ -249,6 +251,9 @@ def refit_best(daily, H, best_row):
         mlflow.set_tag("horizon", str(H))
 
         # --- forecast figure ---
+
+        # TODO: sortir la fonction de plot dans une fonction a part
+
         fig1 = model.plot(forecast); plt.title(f"Groundwater level (m) -  Prophet + lagged weather (H={H}d)")
         mlflow.log_figure(fig1, f"prediction_best_H{H}.png")
         plt.close(fig1) 

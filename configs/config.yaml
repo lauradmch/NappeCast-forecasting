@@ -20,9 +20,12 @@ paths:
     processed: "data/processed"
     external: "data/external"
   models: "models"
+
   local_model_filenames:
     XGBoost: "xgboost.joblib"
     Prophet: "prophet.joblib"
+
+
   interim_filename: "dataset_interim" 
   processed_filename: "dataset_processed"
   weather:
@@ -56,13 +59,29 @@ model:
       subsample: 0.8
       colsample_bytree: 0.8
       random_state: 42
-  Prophet:
+  prophet:
     type: "Prophet"
+
     params:
-      yearly_seasonality: true
-      weekly_seasonality: false
-      daily_seasonality: false
-      changepoint_prior_scale: 0.05
+      h14:
+        yearly_seasonality: true
+        weekly_seasonality: false
+        daily_seasonality: false
+        changepoint_prior_scale: 0.05
+      h30:
+        yearly_seasonality: true
+        weekly_seasonality: false
+        daily_seasonality: false
+        changepoint_prior_scale: 0.05
+    data :
+      features :
+        - "shortwave_radiation_sum"
+        - "et0_fao_evapotranspiration"
+        - "soil_temperature_0_to_100cm_mean"
+        - "P_cum_90d"
+        - "Peff_cum_90d"
+        - "Temperature_mean_90d"
+      target : "niveau_nappe_eau"
       
 training:
   test_size: 30
@@ -77,5 +96,12 @@ mlflow:
   active_model: "Prophet"
   model_alias: "production"
   registered_model_name:
-    XGBoost: "nappecast_XGBoost"
-    Prophet: "nappecast_Prophet"
+    h14:
+      XGBoost: "nappecast_XGBoost_h14"
+      Prophet: "nappecast_Prophet_h14"
+    h30:
+      XGBoost: "nappecast_XGBoost_h30"
+      Prophet: "nappecast_Prophet_h30"
+
+system:
+  logging_format: "%(asctime)s [%(levelname)s] %(message)s"

@@ -15,20 +15,20 @@ import time
 import argparse
 
 from pathlib import Path
+
 from src.config import load_config
 from src.data.clean_dataset import piezometer_dataset_cleaning, weather_dataset_cleaning
-
 from src.helper.aws import load_historical_in_s3,save_raw_data_to_s3, save_interim_data_to_s3
 from src.helper.data import get_last_dates, build_start_dates
-
-# ---------------------------- LOGGING --------------------------------
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
 
 # ---------------------------- VARIABLES ---------------------------
 
 CONFIG = load_config()
+
+# ---------------------------- LOGGING --------------------------------
+
+logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
+logger = logging.getLogger(__name__)
 
 # ---------------------------- API EXTERNE ---------------------------
 

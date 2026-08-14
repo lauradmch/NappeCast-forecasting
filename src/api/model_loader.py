@@ -50,7 +50,9 @@ def _load_from_mlflow(model: Optional[str] = None) -> Any:
     if model_type not in _MLFLOW_LOADERS:
         raise ValueError(f"Type de modèle inconnu : {model_type!r} (attendu {list(_MLFLOW_LOADERS)})")
 
+    # TODO: en fonction du H14 ou du H30
     registered_name = CONFIG["mlflow"]["registered_model_name"][model_type]
+
     alias = CONFIG["mlflow"]["model_alias"]
     model_uri = f"models:/{registered_name}@{alias}"
 
@@ -67,7 +69,7 @@ _LOADERS = {
 
 def load_model(model: Optional[str] = None, source: Optional[str] = None, force_reload: bool = False) -> Any:
     source = source or CONFIG["api"]["model_source"]
-    model_type = model or CONFIG["mlflow"].get("active_model", "XGBoost")
+    model_type = model or CONFIG["mlflow"].get("active_model", "Prophet")
     cache_key = (source, model_type)
 
     cached = _cache.get(cache_key)

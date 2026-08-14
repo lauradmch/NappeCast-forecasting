@@ -31,10 +31,10 @@ from src.api.schemas import (
     PredictionResponse,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
-
 CONFIG = load_config()
+
+logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
+logger = logging.getLogger(__name__)
 
 PIPELINE_SECRET = os.environ["PIPELINE_SECRET"]
 
@@ -103,41 +103,6 @@ def model_reload(model: Optional[str] = None, source: Optional[str] = None):
     return get_model_info(model=model, source=source)
 
 
-@app.get("/compare")
-async def compare_models():
-    df_station, df_processed = build_dataset(skip_historical=True)
-
-    now = pd.Timestamp.now()
-    month_end = now.to_period("M").end_time.normalize()
-
-    results = {}
-    for model_type in CONFIG["mlflow"]["registered_model_name"].keys():
-        try:
-            model = load_model(model=model_type, source="mlflow")
-
-            if model_type == "Prophet":
-                # génération du jeu de predict
-                days_to_month_end = (month_end - now).days + 1
-                future = model.make_future_dataframe(periods=days_to_month_end)
-                forecast = model.predict(future)
-
-                # valeur prédite pour la fin du mois en cours
-                row = forecast[forecast["ds"] == month_end]
-                value = float(row["yhat"].iloc[0]) if not row.empty else float(forecast["yhat"].iloc[-1])
-                results[model_type] = {"date": str(month_end.date()), "prediction": value}
-
-            else:
-                # a voir ici
-                pred = model.predict(df_processed.tail(1))
-                results[model_type] = {"date": str(month_end.date()), "prediction": float(pred[0])}
-
-        except Exception as e:
-            logger.error("Erreur pour %s : %s", model_type, e)
-            results[model_type] = {"error": str(e)}
-
-    return results
-
-
 @app.get("/model/info/all", response_model=Dict[str, ModelInfoResponse], tags=["monitoring"])
 def model_info_all(source: Optional[str] = None):
     """
@@ -148,3 +113,37 @@ def model_info_all(source: Optional[str] = None):
         model_type: get_model_info(model=model_type, source=source)
         for model_type in CONFIG["mlflow"]["registered_model_name"].keys()
     }
+
+
+
+def _predict(df: pd.DataFrame, H: int):
+    try:
+
+        model = load_model()
+
+
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Modèle indisponible : {e}")
+
+    try:
+        predictions = model.predict(df)
+        probabilities = model.predict_proba(df)[:, 1]
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Erreur lors de la prédiction : {e}")
+
+    return predictions, probabilities
+
+
+
+@app.post("/predict", response_model=PredictionResponse, tags=["inference"])
+def predict(observation: Observation):
+    """Prédiction sur une observation unique. La météo de la région est récupérée automatiquement."""
+
+
+    enriched = _enrich_with_weather(observation)
+
+
+
+    df = pd.DataFrame([enriched])
+    predictions, probabilities = _predict(df)
+    return {"prediction": int(predictions[0]), "probabilite": float(probabilities[0])}
