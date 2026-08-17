@@ -89,17 +89,13 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/data")
-async def get_data():
-    print("Fetching Data")
-    df_station, df_interim = build_dataset(skip_historical=True, save_csv=True)
-    df_processed = feat_dataset(save_csv=True)
-
-    response = {
-        "stations": df_station.to_json(orient="split"),
-        "processed": df_processed.to_json(orient="split")
-    }
-    return response
+@app.get("/data/preview", tags=["monitoring"])
+def get_data(n: int = 50):
+    """Read-only data preview of the most recent 'n' rows (default 50)"""
+    df = load_cached_dataset()
+    out = df.tail(n).copy()
+    out["date_index"] = pd.to_datetime(out["date_index"]).dt.strftime("%Y-%m-%d")
+    return out.to_dict(orient="records")
 
 @app.post("/pipeline/collect")
 async def collect_pipeline(_: None = Depends(verify_secret)):
