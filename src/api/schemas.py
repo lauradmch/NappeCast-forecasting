@@ -1,12 +1,7 @@
 """
 Schémas Pydantic — contrats d'entrée/sortie de l'API.
 
-Observation reprend les colonnes BRUTES attendues par le pipeline
-sklearn (model.features dans configs/config.yaml), à l'exception des
-colonnes dérivées automatiquement par FeatureEngineer (revenu_par_age,
-tranche_age, categorie_region...) et des colonnes météo (temperature_max/min,
-precipitation), que l'API récupère elle-même via fetch_weather_for_region
-en fonction de `region` et `date` — voir src/api/main.py.
+
 """
 
 from typing import List, Optional
@@ -23,34 +18,23 @@ class ModelInfoResponse(BaseModel):
     detail: Optional[str] = None
 
 
-class Observation(BaseModel):
-    #age: float = Field(..., ge=0, le=120, examples=[35])
-    date: Optional[str] = Field(
-        None,
-        description="Format AAAA-MM-JJ. Par défaut : aujourd'hui.",
-        examples=["2026-07-15"],
-    )
+class PredictPoint(BaseModel):
+    ds: str
+    yhat: float
+    yhat_lower: float
+    yhat_upper: float
 
+class PredictResponse(BaseModel):
+    last_train: str
+    points: List[PredictPoint]
 
-class PredictionResponse(BaseModel):
-    prediction: int
-    probability: float
 
 class TrainingResponse(BaseModel):
-        H : int
-        str(new_version): str
-        str(prev_version): str
-        run_id: float
+    horizon : int
+    new_version: Optional[str] = None
+    previous_version: Optional[str] = None
+    run_id: str
     
-
-
-class BatchObservations(BaseModel):
-    observations: List[Observation]
-
-
-class BatchPredictionResponse(BaseModel):
-    predictions: List[PredictionResponse]
-
 
 class HealthResponse(BaseModel):
     status: str

@@ -30,17 +30,15 @@ from src.helper.aws import upload_file_to_s3, read_csv_in_s3
 
 from src.api.model_loader import get_model_info, load_model, _MLFLOW_LOADERS
 from src.api.schemas import (
-    BatchObservations,
-    BatchPredictionResponse,
     HealthResponse,
     ModelInfoResponse,
-    Observation,
-    PredictionResponse,
+    PredictResponse,
     TrainingResponse,
 )
 from src.models.prophet import (build_train_frame,
                                 build_future_frame,
                                 build_daily,
+                                TARGET,
 )
 
 #--------------------- VARIABLES ---------------------
@@ -224,34 +222,28 @@ def training(H: Literal[14, 30], _: None = Depends(verify_secret)):
     }
 
 
-def _predict(df: pd.DataFrame, H: int):
+@app.post("/predict", response_model=PredictResponse, tags=["inference"])
+def predict(H: Literal[14, 30]):
+    # build future dataframe
+    df = load_cached_dataset()
+    daily = build_daily(df)
+    future, _ = build_future_frame(daily, H)
+
+    # load model in prod
     try:
-
-        model = load_model()
-
-
+        model = load_model(model='Prophet', horizon=H)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Modèle indisponible : {e}")
+        raise HTTPException(status_code=503, detail=f"Model unavailable: {e}")
 
+    # forecast
     try:
-        predictions = model.predict(df)
-        probabilities = model.predict_proba(df)[:, 1]
+        forecast = model.predict(future)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Erreur lors de la prédiction : {e}")
+        raise HTTPException(status_code=422, detail=f"Prediction failed: {e}")
 
-    return predictions, probabilities
+    last_train = daily[daily[TARGET].notna()].index.max().strftime("%Y-%m-%d")
+    forecast["ds"] = forecast["ds"].dt.strftime("%Y-%m-%d")
+    # converts forcast df to a list of dicts, one dict (day) per row 
+    points = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].to_dict(orient="records")
 
-
-
-@app.post("/predict", response_model=PredictionResponse, tags=["inference"])
-def predict(observation: Observation):
-    """Prédiction sur une observation unique. La météo de la région est récupérée automatiquement."""
-
-
-    enriched = _enrich_with_weather(observation)
-
-
-
-    df = pd.DataFrame([enriched])
-    predictions, probabilities = _predict(df)
-    return {"prediction": int(predictions[0]), "probability": float(probabilities[0])}
+    return {"last_train": last_train, "points": points}
