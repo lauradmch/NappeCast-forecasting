@@ -6,7 +6,7 @@ Schémas Pydantic — contrats d'entrée/sortie de l'API.
 
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 class ModelInfoResponse(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
@@ -30,11 +30,11 @@ class PredictResponse(BaseModel):
 
 
 class TrainingResponse(BaseModel):
-    horizon : int
+    horizon: int
     new_version: Optional[str] = None
     previous_version: Optional[str] = None
     run_id: str
-    
+
 
 class HealthResponse(BaseModel):
     status: str
