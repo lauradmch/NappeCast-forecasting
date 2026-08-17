@@ -35,6 +35,10 @@ import matplotlib.dates as mdates
 import mlflow
 import mlflow.prophet
 from prophet import Prophet
+from src.models.prophet import (build_train_frames,
+                                build_future_frame,
+                                build_daily,
+                                plot_forecast)
 from prophet.diagnostics import cross_validation, performance_metrics
 from dotenv import load_dotenv
 
@@ -97,33 +101,8 @@ EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME", "prophet-groundwater-tunin
 # ---------------------------------------------------------------------------
 def load_daily() -> pd.DataFrame:
     dataset = pd.read_csv(INPUT_PATH)
-    dataset = dataset.set_index("date_index", drop=False)
-    dataset.index = pd.to_datetime(dataset.index)
-    missing = set(DAILY_FEATURES) - set(dataset.columns)
-    assert not missing, f"missing features: {missing}"
-    daily = dataset[[TARGET] + DAILY_FEATURES].groupby(level=0).mean()
+    daily = build_daily(dataset)
     return daily
-
-
-def build_frames(daily: pd.DataFrame, H: int):
-    """Return (df_prophet, future, regressor_cols) for a given horizon H.
-
-    Regressors are the daily features shifted forward by H days, so that at
-    prediction time only *past* observations feed each forecast — no leakage.
-    """
-    future_idx = pd.date_range(daily.index.min(), periods=len(daily) + H, freq="D")
-    df_ext = daily.reindex(future_idx)                 # H empty rows appended
-    for col in DAILY_FEATURES:
-        df_ext[f"{col}_lag{H}"] = df_ext[col].shift(H)
-    regressor_cols = [f"{col}_lag{H}" for col in DAILY_FEATURES]
-
-    df_all = pd.DataFrame({"ds": df_ext.index, "y": df_ext[TARGET].values})
-    for col in regressor_cols:
-        df_all[col] = df_ext[col].values
-
-    df_prophet = df_all.dropna(subset=["y"] + regressor_cols).reset_index(drop=True)
-    future = df_all[["ds"] + regressor_cols].dropna(subset=regressor_cols).reset_index(drop=True)
-    return df_prophet, future, regressor_cols
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +157,7 @@ def score_config(df_prophet, regressor_cols, params, H):
 # 3. Grid search for one horizon
 # ---------------------------------------------------------------------------
 def tune_horizon(daily, H) -> pd.DataFrame:
-    df_prophet, _, regressor_cols = build_frames(daily, H)
+    df_prophet, regressor_cols = build_train_frames(daily, H)
 
     keys = list(PARAM_GRID.keys())
     combos = list(itertools.product(*PARAM_GRID.values()))
@@ -232,7 +211,9 @@ def tune_horizon(daily, H) -> pd.DataFrame:
 # 4. Refit + log the winning config for a horizon
 # ---------------------------------------------------------------------------
 def refit_best(daily, H, best_row):
-    df_prophet, future, regressor_cols = build_frames(daily, H)
+    future, regressor_cols = build_future_frame(daily, H)
+    df_prophet, regressor_cols = build_train_frames(daily, H)
+
     tuned = {k: best_row[k] for k in PARAM_GRID}
     params = {**BASE_PARAMS, **tuned}
 
