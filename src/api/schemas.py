@@ -34,7 +34,14 @@ class Observation(BaseModel):
 
 class PredictionResponse(BaseModel):
     prediction: int
-    probabilite: float
+    probability: float
+
+class TrainingResponse(BaseModel):
+        H : int
+        str(new_version): str
+        str(prev_version): str
+        run_id: float
+    
 
 
 class BatchObservations(BaseModel):
