@@ -35,7 +35,7 @@ import matplotlib.dates as mdates
 import mlflow
 import mlflow.prophet
 from prophet import Prophet
-from src.models.prophet import (build_train_frames,
+from src.models.prophet import (build_train_frame,
                                 build_future_frame,
                                 build_daily,
                                 plot_forecast)
@@ -157,7 +157,7 @@ def score_config(df_prophet, regressor_cols, params, H):
 # 3. Grid search for one horizon
 # ---------------------------------------------------------------------------
 def tune_horizon(daily, H) -> pd.DataFrame:
-    df_prophet, regressor_cols = build_train_frames(daily, H)
+    df_prophet, regressor_cols = build_train_frame(daily, H)
 
     keys = list(PARAM_GRID.keys())
     combos = list(itertools.product(*PARAM_GRID.values()))
@@ -212,7 +212,7 @@ def tune_horizon(daily, H) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 def refit_best(daily, H, best_row):
     future, regressor_cols = build_future_frame(daily, H)
-    df_prophet, regressor_cols = build_train_frames(daily, H)
+    df_prophet, regressor_cols = build_train_frame(daily, H)
 
     tuned = {k: best_row[k] for k in PARAM_GRID}
     params = {**BASE_PARAMS, **tuned}

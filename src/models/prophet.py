@@ -26,26 +26,8 @@ logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"
 logger = logging.getLogger(__name__)
 
 # ----------------------------  ---------------------------
-
-def build_frames(daily: pd.DataFrame, H: int) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
-    """
-    Builds the future-aware lagged regressors
-
-    Parameters:
-        daily : pd.DataFrame
-            Historical daily-frequency data.
-        H : int
-            Forecast horizon, in days.
-    
-    Returns:
-        df_prophet     : rows where y AND regressors are known (training)
-        future         : rows where regressors are known (history + H days)
-        regressor_cols : names of the lagged columns
-    """
-
-    # TODO: séparer la génération des 2 dataframe : présent/future pour séparer le predict et le fit
-
-
+# helper for shared extended & shifted features
+def _extend_and_shift(daily: pd.DataFrame, H: int) -> tuple[pd.DataFrame, list[str]]:
     # Extend the index by H days to create the forecast rows
     future_idx = pd.date_range(daily.index.min(), periods=len(daily) + H, freq="D")
     df_ext = daily.reindex(future_idx)
@@ -60,10 +42,26 @@ def build_frames(daily: pd.DataFrame, H: int) -> tuple[pd.DataFrame, pd.DataFram
     for col in regressor_cols:
         df_all[col] = df_ext[col].values
 
-    df_prophet = df_all.dropna(subset=["y"] + regressor_cols).reset_index(drop=True)
-    future = df_all[["ds"] + regressor_cols].dropna(subset=regressor_cols).reset_index(drop=True)
 
-    return df_prophet, future, regressor_cols
+    return df_all, regressor_cols
+
+def build_train_frame(daily: pd.DataFrame, H: int) -> tuple[pd.DataFrame, list[str]]:
+    """
+    Builds the future-aware lagged regressors
+
+    Parameters:
+        daily : pd.DataFrame
+            Historical daily-frequency data.
+        H : int
+            Forecast horizon, in days.
+    
+    Returns:
+        df_prophet     : rows where y AND regressors are known (training)
+        regressor_cols : names of the lagged columns
+    """
+    df_all, regressor_cols = _extend_and_shift(daily, H)
+
+    return df_all.dropna(subset=["y"] + regressor_cols).reset_index(drop=True), regressor_cols
 
 
 def build_daily(df_prediction: pd.DataFrame) -> pd.DataFrame:
@@ -88,6 +86,25 @@ def build_daily(df_prediction: pd.DataFrame) -> pd.DataFrame:
         raise KeyError(f"Missing columns in df_prediction: {missing}")
 
     return d[[TARGET] + DAILY_FEATURES].groupby(level=0).mean()
+
+def build_future_frame(daily: pd.DataFrame, H: int) -> tuple[pd.DataFrame, list[str]]:
+    """
+    Builds the future-aware lagged regressors for the forecasted period
+
+    Parameters:
+        daily : pd.DataFrame
+            Historical daily-frequency data.
+        H : int
+            Forecast horizon, in days.
+    
+    Returns:
+        future         : rows where regressors are known (history + H days)
+            future.ds ⊇ df_prophet.ds ∪ [last_train+1 … last_train+H]
+
+    """
+    df_all, regressor_cols = _extend_and_shift(daily, H)
+
+    return df_all.dropna(subset=regressor_cols).reset_index(drop=True), regressor_cols
 
 # ---------------------------- PLOT ---------------------------
 

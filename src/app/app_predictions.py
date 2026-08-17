@@ -20,7 +20,8 @@ from scipy.stats import norm
 from prophet import Prophet
 
 from src.config import load_config
-from src.models.prophet import (build_frames, 
+from src.models.prophet import (build_train_frame,
+                                build_future_frame,
                                 build_daily,
                                 plot_forecast)
 from src.helper.spli import (forecast as spli_forecast,
@@ -82,7 +83,8 @@ def fit_and_forecast(daily: pd.DataFrame, H: int):
     """
     params = HYPERPARAMS[H]
 
-    df_prophet, future, regressor_cols = build_frames(daily, H)
+    df_prophet, regressor_cols = build_train_frame(daily, H)
+    future, regressor_cols = build_future_frame(daily, H)
 
     model = Prophet(**params)
     for col in regressor_cols:
