@@ -5,23 +5,18 @@ Content of the Documentation / Predictions tab
 
 
 # --------------------------- LIBRARY --------------------------------
-import ast
 import pandas as pd
 import numpy as np
 import streamlit as st
 import requests
-import plotly.express as px
 import plotly.graph_objects as go
 import logging
 import os
-import yaml
 
-from scipy.stats import norm
-from prophet import Prophet
 
 from src.config import load_config
+from requests.exceptions import RequestException
 from src.models.prophet import (build_train_frame,
-                                build_future_frame,
                                 build_daily,
                                 plot_forecast)
 from src.helper.spli import (forecast as spli_forecast,
@@ -46,57 +41,24 @@ logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
 # ---------------------------- FORECAST HELPERS ---------------------------
 
-# Per-horizon Prophet hyperparameters. Each allowed H has its own config,
-# so H=14 and H=30 can be tuned independently. Baseline values are identical;
-# adjust each block (e.g. changepoint_prior_scale) as you validate each horizon.
-HYPERPARAMS = {
-    14: {
-        "seasonality_mode": "additive",
-        "weekly_seasonality": False,
-        "daily_seasonality": False,
-        "yearly_seasonality": True,
-        "interval_width": 0.80,          # -> 80% interval
-        "changepoint_prior_scale": 0.1,
-        "seasonality_prior_scale": 0.1,
-        "changepoint_range": 0.8,
-    },
-    30: {
-        "seasonality_mode": "additive",
-        "weekly_seasonality": False,
-        "daily_seasonality": False,
-        "yearly_seasonality": True,
-        "interval_width": 0.80,          # -> 80% interval
-        "changepoint_prior_scale": 0.3,
-        "seasonality_prior_scale": 10,
-        "changepoint_range": 0.8,
-    },
-}
-
-
 @st.cache_data(show_spinner=False)
-def fit_and_forecast(daily: pd.DataFrame, H: int):
+def fetch_forecast(H: int):
     """
-    Retrains Prophet and predicts. Cached (@st.cache_data): only re-runs
-    when `daily` or `H` change — not on every Streamlit rerun.
-    Uses the hyperparameter config bound to this H (HYPERPARAMS[H]).
-    Returns (df_prophet, forecast).
+    Predict. Cached (@st.cache_data): only re-runs
+    when `H` changes, not on every Streamlit rerun.
+    Returns (last_train, forecast).
     """
-    params = HYPERPARAMS[H]
-
-    df_prophet, regressor_cols = build_train_frame(daily, H)
-    future, regressor_cols = build_future_frame(daily, H)
-
-    model = Prophet(**params)
-    for col in regressor_cols:
-        model.add_regressor(col)
-    model.fit(df_prophet)
-
-    forecast = model.predict(future)
-    return df_prophet, forecast
-
-
-
-
+    try:
+        response = requests.post(f'{API_URL}/predict', params={'H': H}, timeout=60)
+        response.raise_for_status()
+    except RequestException as e:
+        st.error(f"Could not reach the forecast API: {e}")
+        return None
+    data = response.json()
+    forecast_df = pd.DataFrame(data["points"])
+    forecast_df["ds"] = pd.to_datetime(forecast_df["ds"])
+    last_train = pd.to_datetime(data["last_train"])
+    return last_train, forecast_df
 
 
 # ---------------------------- METHODS ---------------------------
@@ -117,19 +79,33 @@ def render_predictions(df_prediction: pd.DataFrame) -> None:
     # auto-run once on first load with default params
     if run or not st.session_state.get("forecast_ran", False):
         st.session_state["forecast_ran"] = True
-        with st.spinner("Training + Prophet forecast in progress..."):
+        with st.spinner("Fetching forecast from API..."):
             try:
 
-                # TODO: ne faire que le predict (sans le fit)
                 daily = build_daily(df_prediction)
-                df_prophet, forecast = fit_and_forecast(daily, H)
+                result = fetch_forecast(H)
+                if result is None:
+                    return
+                last_train, forecast = result
+                history, _ = build_train_frame(daily, H)
 
-
-
-                fig = plot_forecast(df_prophet, forecast, H)
+                fig = plot_forecast(history, forecast, H)
                 st.plotly_chart(fig, use_container_width=True)
 
-                last_train = df_prophet["ds"].max()
+                # display loaded_at as a caption
+                try:
+                    info = requests.get(f"{API_URL}/model/info",
+                                        params={"model": "Prophet", "horizon": H},
+                                        timeout=5).json()
+                    loaded_at = info.get("loaded_at")
+                    if loaded_at:
+                        # nicer display: "2026-08-17 14:32" instead of ISO
+                        stamp = pd.to_datetime(loaded_at).strftime("%Y-%m-%d %H:%M")
+                        st.caption(f"Model H={H} loaded at {stamp}")
+                    else:
+                        st.caption(f"Model H={H} not loaded yet")
+                except requests.RequestException:
+                    st.caption("Model status unavailable")
 
                 # ---- SPLI of the forecast period ----
                 st.markdown("**Forecast SPLI (Standardised Piezometric Level Index)**")
