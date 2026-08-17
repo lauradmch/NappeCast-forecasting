@@ -22,7 +22,7 @@ paths:
   models: "models"
 
   local_model_filenames:
-    XGBoost: "xgboost.joblib"
+    #XGBoost: "xgboost.joblib"
     Prophet: "prophet.joblib"
 
 
@@ -97,10 +97,10 @@ mlflow:
   model_alias: "production"
   registered_model_name:
     h14:
-      XGBoost: "nappecast_XGBoost_h14"
+      #XGBoost: "nappecast_XGBoost_h14"
       Prophet: "nappecast_Prophet_h14"
     h30:
-      XGBoost: "nappecast_XGBoost_h30"
+      #XGBoost: "nappecast_XGBoost_h30"
       Prophet: "nappecast_Prophet_h30"
 
 system:

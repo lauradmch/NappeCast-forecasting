@@ -28,7 +28,7 @@ from src.data.make_dataset import build_dataset
 from src.data.feat_dataset import feat_dataset
 from src.helper.aws import upload_file_to_s3, read_csv_in_s3
 
-from src.api.model_loader import get_model_info, load_model
+from src.api.model_loader import get_model_info, load_model, _MLFLOW_LOADERS
 from src.api.schemas import (
     BatchObservations,
     BatchPredictionResponse,
@@ -53,7 +53,6 @@ TUNING_CSV_PATH         = Path(__file__).resolve().parents[2] / "src" / "models"
 
 EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME", "prophet-groundwater-tuning")
 
-
 logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
 logger = logging.getLogger(__name__)
 
@@ -64,10 +63,11 @@ _cache: dict = {}  # {"etag": str, "df": pd.DataFrame}
 #--------------------- ENDPOINTS & HELPERS ---------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        load_model()
-    except Exception as e:
-        logger.warning("Préchargement du modèle échoué au démarrage : %s", e)
+    for H in (14, 30):
+        try:
+            load_model(model="Prophet", horizon=H)
+        except Exception as e:
+            logger.warning("Model pre-loading H=%d failed : %s", H, e)
 
     yield  # l'API tourne ici -- rien à faire à l'arrêt pour ce projet
 
@@ -112,31 +112,31 @@ async def collect_pipeline(_: None = Depends(verify_secret)):
 
 
 @app.get("/model/info", response_model=ModelInfoResponse, tags=["monitoring"])
-def model_info(model: Optional[str] = None, source: Optional[str] = None):
+def model_info(model: Optional[str] = None, source: Optional[str] = None, horizon: Optional[int] = None):
     """État du modèle en cache pour le type/source donnés (ou le modèle actif par défaut si omis)."""
-    return get_model_info(model=model, source=source)
+    return get_model_info(model=model, source=source, horizon=horizon)
 
 
 @app.post("/model/reload", response_model=ModelInfoResponse, tags=["monitoring"])
-def model_reload(model: Optional[str] = None, source: Optional[str] = None):
+def model_reload(model: Optional[str] = None, source: Optional[str] = None, horizon: Optional[int] = None):
     """Force un rechargement du modèle (type/source donnés, ou modèle actif par défaut) — utile après un nouvel entraînement."""
     try:
-        load_model(model=model, source=source, force_reload=True)
+        load_model(model=model, source=source, horizon=horizon, force_reload=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Échec du rechargement du modèle : {e}")
-    return get_model_info(model=model, source=source)
+    return get_model_info(model=model, source=source, horizon=horizon)
 
 
 @app.get("/model/info/all", response_model=Dict[str, ModelInfoResponse], tags=["monitoring"])
-def model_info_all(source: Optional[str] = None):
+def model_info_all(source: Optional[str] = None, horizon: Optional[int] = None):
     """
     État des modèles en une seule requête.
     """
-    
     return {
-        model_type: get_model_info(model=model_type, source=source)
-        for model_type in CONFIG["mlflow"]["registered_model_name"].keys()
-    }
+        f"{model_type}_h{H}": get_model_info(model=model_type, source=source, horizon=H)
+        for H in (14, 30)
+        for model_type in _MLFLOW_LOADERS.keys()
+}
 
 
 def load_cached_dataset() -> pd.DataFrame:

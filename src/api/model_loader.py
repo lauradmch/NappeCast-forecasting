@@ -25,14 +25,20 @@ CONFIG = load_config()
 
 # Dispatch du flavor MLflow selon le type de modèle
 _MLFLOW_LOADERS = {
-    "XGBoost": mlflow.sklearn.load_model,
     "Prophet": mlflow.prophet.load_model,
 }
 
-_cache: dict = {}  # clé : (source, model_type)
+_cache: dict = {}  # clé : (source, model_type, horizon)
 
-def _load_from_local(model: Optional[str] = None) -> Any:
-    model_type = model or CONFIG["mlflow"].get("active_model", "XGBoost")
+def _horizon_key(horizon: int) -> str:
+    """14 → 'h14', 30 → 'h30'. Raises for anything else."""
+    if horizon not in (14, 30):
+        raise ValueError(f"Unsupported horizon: {horizon!r}. Expected one of {[14, 30]}.")
+    return f"h{horizon}"
+
+def _load_from_local(model: Optional[str] = None, horizon: Optional[int] = None) -> Any:
+    # horizon ignored: local dev has one file per model type, no per-horizon variant
+    model_type = model or CONFIG["mlflow"]["active_model"]
     filename = CONFIG["paths"]["local_model_filenames"][model_type]
     model_path = Path(CONFIG["paths"]["models"]) / filename
 
@@ -41,17 +47,17 @@ def _load_from_local(model: Optional[str] = None) -> Any:
     return joblib.load(model_path)
 
 
-def _load_from_mlflow(model: Optional[str] = None) -> Any:
+def _load_from_mlflow(model: Optional[str] = None, horizon: Optional[int] = None) -> Any:
     tracking_uri = CONFIG["mlflow"]["internal_tracking_uri"]
     mlflow.set_tracking_uri(tracking_uri)
 
-    model_type = model or CONFIG["mlflow"].get("active_model", "XGBoost")
+    model_type = model or CONFIG["mlflow"]["active_model"]
+    h_key = _horizon_key(horizon)
 
     if model_type not in _MLFLOW_LOADERS:
-        raise ValueError(f"Type de modèle inconnu : {model_type!r} (attendu {list(_MLFLOW_LOADERS)})")
-
-    # TODO: en fonction du H14 ou du H30
-    registered_name = CONFIG["mlflow"]["registered_model_name"][model_type]
+        raise ValueError(f"Unknown model type : {model_type!r} (expecting {list(_MLFLOW_LOADERS)})")
+    
+    registered_name = CONFIG["mlflow"]["registered_model_name"][h_key][model_type]
 
     alias = CONFIG["mlflow"]["model_alias"]
     model_uri = f"models:/{registered_name}@{alias}"
@@ -67,10 +73,10 @@ _LOADERS = {
 }
 
 
-def load_model(model: Optional[str] = None, source: Optional[str] = None, force_reload: bool = False) -> Any:
+def load_model(model: Optional[str] = None, source: Optional[str] = None, force_reload: bool = False, horizon: Optional[int] = None) -> Any:
     source = source or CONFIG["api"]["model_source"]
-    model_type = model or CONFIG["mlflow"].get("active_model", "Prophet")
-    cache_key = (source, model_type)
+    model_type = model or CONFIG["mlflow"]["active_model"]
+    cache_key = (source, model_type, horizon)
 
     cached = _cache.get(cache_key)
     if cached and cached.get("model") is not None and not force_reload:
@@ -81,7 +87,7 @@ def load_model(model: Optional[str] = None, source: Optional[str] = None, force_
 
     logger.info("Chargement du modèle (source=%s, type=%s)...", source, model_type)
     try:
-        loaded = _LOADERS[source](model_type)
+        loaded = _LOADERS[source](model_type, horizon)
     except Exception as e:
         _cache[cache_key] = {
             "model": cached.get("model") if cached else None,
@@ -98,16 +104,17 @@ def load_model(model: Optional[str] = None, source: Optional[str] = None, force_
     return loaded
 
 
-def get_model_info(model: Optional[str] = None, source: Optional[str] = None) -> dict:
+def get_model_info(model: Optional[str] = None, source: Optional[str] = None, horizon: Optional[int] = None) -> dict:
     source = source or CONFIG["api"]["model_source"]
-    model_type = model or CONFIG["mlflow"].get("active_model", "XGBoost")
-    cache_key = (source, model_type)
+    model_type = model or CONFIG["mlflow"]["active_model"]
+    cache_key = (source, model_type, horizon)
 
     entry = _cache.get(cache_key, {})
 
     return {
         "loaded": entry.get("model") is not None,
         "source": source,
+        "horizon": horizon,
         "model_type": model_type,
         "loaded_at": entry.get("loaded_at"),
         "detail": entry.get("detail"),
