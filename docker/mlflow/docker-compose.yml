@@ -1,0 +1,19 @@
+services:
+  mlflow:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - ../.env
+    volumes:
+      - mlflow_data:/mlflow-data
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=${MLFLOW_BACKEND_STORE_URI}
+      - MLFLOW_ARTIFACT_ROOT=${MLFLOW_ARTIFACT_ROOT}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    restart: unless-stopped
+
+volumes:
+  mlflow_data:

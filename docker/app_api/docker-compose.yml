@@ -27,8 +27,10 @@ services:
     build:
       context: .                    # racine du projet, englobe tout src/
       dockerfile: src/api/Dockerfile
+    env_file:
+      - ../.env
     environment:
-      - MLFLOW_TRACKING_URI=http://51.45.56.7:5000
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
       - PIPELINE_SECRET=${PIPELINE_SECRET}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
