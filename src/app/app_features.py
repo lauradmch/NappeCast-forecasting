@@ -5,15 +5,10 @@ Features tab content
 
 
 # --------------------------- LIBRARY --------------------------------
-import ast
-from pathlib import Path
-from src.config import load_config
-import pandas as pd
-import streamlit as st
-import requests
-import seaborn as sns
 import matplotlib.pyplot as plt
-import plotly.express as px 
+import pandas as pd
+import seaborn as sns
+import streamlit as st
 
 # ---------------------------- LOADING DATA ---------------------------
 
@@ -70,8 +65,8 @@ def render_features(df_cleaned = pd.DataFrame) -> None:
         ax.set_title('Correlation matrix after removal of correlated features', fontsize=9)
         ax.tick_params(axis='both', labelsize=7)
         plt.tight_layout()
-        col1, col2, col3 = st.columns([1, 3, 1])
-        with col2:
+        _left, center, _right = st.columns([1, 3, 1])
+        with center:
                 st.pyplot(fig)
         st.caption("""
                The feature selection process successfully removed redundant variables, cutting the feature space

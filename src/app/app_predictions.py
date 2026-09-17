@@ -5,22 +5,19 @@ Content of the Documentation / Predictions tab
 
 
 # --------------------------- LIBRARY --------------------------------
-import pandas as pd
-import streamlit as st
-import requests
 import logging
 import os
 
+import pandas as pd
+import requests
+import streamlit as st
 
 from src.app import api_client
 from src.config import load_config
-from src.helper.constants import TARGET_COL, MIN_FORECAST_DAYS
-from src.models.prophet import (build_train_frame,
-                                build_daily,
-                                plot_forecast)
-from src.helper.spli import (forecast as spli_forecast,
-                             category_label as spli_label)
-
+from src.helper.constants import MIN_FORECAST_DAYS, TARGET_COL
+from src.helper.spli import category_label as spli_label
+from src.helper.spli import forecast as spli_forecast
+from src.models.prophet import build_daily, build_train_frame, plot_forecast
 
 # ---------------------------- VARIABLES ---------------------------
 

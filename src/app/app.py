@@ -3,17 +3,18 @@
 #---------------------------------------------------------------------------------
 
 #--------------------- LIBRARY ---------------------
-import streamlit as st
-import pandas as pd
-import boto3
-
 from pathlib import Path
-from src.config import load_config
-from src.app.app_sidebar import render_sidebar
-from src.app.app_predictions import render_predictions
-from src.app.app_features import render_features
-from src.app.app_stats import render_stats
+
+import boto3
+import pandas as pd
+import streamlit as st
+
 from src.app.app_doc import render_documentation
+from src.app.app_features import render_features
+from src.app.app_predictions import render_predictions
+from src.app.app_sidebar import render_sidebar
+from src.app.app_stats import render_stats
+from src.config import load_config
 from src.helper.aws import read_csv_in_s3
 
 #--------------------- VARIABLES ---------------------

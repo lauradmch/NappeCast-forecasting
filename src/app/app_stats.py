@@ -5,19 +5,37 @@ Run: streamlit run app_stats.py
 """
 
 # --------------------------- LIBRARY --------------------------------
-import pandas as pd
-import streamlit as st
 import numpy as np
-
-
+import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from plotly.subplots import make_subplots
 from statsmodels.tsa.seasonal import STL
-from src.helper.constants import DRIVER_LABELS, TARGET_COL, SPLI_COL, DROUGHT_THRESHOLDS, DROUGHT_EVENT_THRESHOLD
-from src.helper.indices import (characterize_events, cross_corr, longest_and_most_intense,
-                                monthly, to_datetime_index)
-from src.helper.theme import PLOTLY_LAYOUT, C_INK, C_BLUE, C_TEAL,C_DEEP, C_GRID, RDBU, DRIVER_PALETTE
 
+from src.helper.constants import (
+    DRIVER_LABELS,
+    DROUGHT_EVENT_THRESHOLD,
+    DROUGHT_THRESHOLDS,
+    SPLI_COL,
+    TARGET_COL,
+)
+from src.helper.indices import (
+    characterize_events,
+    cross_corr,
+    longest_and_most_intense,
+    monthly,
+    to_datetime_index,
+)
+from src.helper.theme import (
+    C_BLUE,
+    C_DEEP,
+    C_GRID,
+    C_INK,
+    C_TEAL,
+    DRIVER_PALETTE,
+    PLOTLY_LAYOUT,
+    RDBU,
+)
 
 
 # --------------------------------------------------------------------------- #
