@@ -1,3 +1,11 @@
 nappecast.mapflowing.com {
     reverse_proxy streamlit:8501
 }
+
+airflow.mapflowing.com {
+    reverse_proxy 172.31.8.14:8080
+}
+
+mlflow.mapflowing.com {
+    reverse_proxy 172.31.32.79:5000
+}

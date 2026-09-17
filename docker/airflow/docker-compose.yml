@@ -34,13 +34,11 @@
 # _AIRFLOW_WWW_USER_USERNAME    - Compte admin (défaut: airflow)
 # _AIRFLOW_WWW_USER_PASSWORD    - Mot de passe admin (défaut: airflow)
 ---
-version: '3'
+#version: '3'
 x-airflow-common:
   &airflow-common
   # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.3.2}
   build: .
-  env_file:
-    - ../.env
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -48,7 +46,7 @@ x-airflow-common:
     AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
-    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
@@ -69,8 +67,6 @@ x-airflow-common:
 services:
   postgres:
     image: postgres:13
-    env_file:
-    - ../.env
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
@@ -224,8 +220,6 @@ services:
         chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
         exec /entrypoint airflow version
     # yamllint enable rule:line-length
-    env_file:
-      - ../.env
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_UPGRADE: 'true'
@@ -276,8 +270,6 @@ services:
     image: amazon/aws-cli:2.17.62
     container_name: airflow-s3-sync
     restart: always
-    env_file:
-      - ../.env
     environment:
       AWS_DEFAULT_REGION: ${AWS_REGION:-eu-west-1}
       S3_BUCKET: ${S3_BUCKET:?Merci de definir S3_BUCKET dans le fichier .env}

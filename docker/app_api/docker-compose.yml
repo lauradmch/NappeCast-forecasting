@@ -1,34 +1,33 @@
 services:
   caddy:
     image: caddy:2
+    container_name: caddy
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
+      - caddy_data:/home/app/data/caddy
     depends_on:
       - streamlit
     restart: unless-stopped
 
   streamlit:
     build:
-      context: .
+      context: ../..
       dockerfile: src/app/Dockerfile
     expose:
       - "8501"
     environment:
-      - API_URL=http://api:8000    # "api" = nom du service, résolu automatiquement
+      - API_URL=http://api:8000
     volumes:
-      - streamlit_data:/home/app/data
+      - streamlit_data:/home/app/data/streamlit
     restart: unless-stopped
 
   api:
     build:
-      context: .                    # racine du projet, englobe tout src/
+      context: ../..
       dockerfile: src/api/Dockerfile
-    env_file:
-      - ../.env
     environment:
       - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
       - PIPELINE_SECRET=${PIPELINE_SECRET}

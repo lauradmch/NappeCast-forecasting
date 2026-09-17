@@ -12,4 +12,5 @@ CMD mlflow server \
     --port 5000 \
     --workers 1 \
     --allowed-hosts "*" \
-    --cors-allowed-origins "$MLFLOW_TRACKING_URI"
+    --cors-allowed-origins "$CORS_ALLOWED_ORIGINS"
+    
