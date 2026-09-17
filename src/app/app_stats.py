@@ -13,76 +13,22 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from statsmodels.tsa.seasonal import STL
-from src.helper.constants import DRIVER_LABELS, TARGET_COL, SPLI_COL, DROUGHT_THRESHOLDS, DROUGHT_EVENT_THRESHOLD, DATE_COL
+from src.helper.constants import DRIVER_LABELS, TARGET_COL, SPLI_COL, DROUGHT_THRESHOLDS, DROUGHT_EVENT_THRESHOLD
+from src.helper.indices import (characterize_events, cross_corr, longest_and_most_intense,
+                                monthly, to_datetime_index)
 from src.helper.theme import PLOTLY_LAYOUT, C_INK, C_BLUE, C_TEAL,C_DEEP, C_GRID, RDBU, DRIVER_PALETTE
 
 
 
 # --------------------------------------------------------------------------- #
-# Column: raw signal + the standardized index columns
-# --------------------------------------------------------------------------- # 
-# Standardized index columns (scale = 1), as produced in feature engineering.
-
-INDEX_COLS = [SPLI_COL] + list(DRIVER_LABELS)
-
+# Cached computations (Streamlit wrapper around the pure helpers)
 # --------------------------------------------------------------------------- #
-# Computations
-# --------------------------------------------------------------------------- #
-def monthly(series: pd.Series) -> pd.Series:
-    """Collapse a (daily, forward-filled) index column to one value per month.
-    The standardized indices are constant within a month, so the monthly mean
-    recovers that month's value."""
-    return series.resample("MS").mean().dropna()
- 
- 
-def characterize_events(series, threshold=DROUGHT_EVENT_THRESHOLD, direction="below", min_gap=1, pooling=True):
-    """Run-theory drought detection with inter-event pooling (extreme_events cell 12).
-    Runs on the SPLI series that is already in the dataset — this is event
-    *analysis*, not index computation."""
-    s = series.dropna()
-    hit = (s < threshold) if direction == "below" else (s > threshold)
-    prev = hit.shift(fill_value=False)
-    nxt = hit.shift(-1, fill_value=False)
-    starts = list(s.index[hit & ~prev])
-    ends = list(s.index[hit & ~nxt])
-    if not starts:
-        return pd.DataFrame(columns=["start", "end", "duration_m", "peak", "severity"])
-    if pooling and len(starts) > 1:
-        merged = [[starts[0], ends[0]]]
-        for stt, en in zip(starts[1:], ends[1:]):
-            gap = (stt.to_period("M") - merged[-1][1].to_period("M")).n
-            if gap <= min_gap:
-                merged[-1][1] = en
-            else:
-                merged.append([stt, en])
-        starts, ends = zip(*merged)
-    rows = []
-    for stt, en in zip(starts, ends):
-        w = s.loc[stt:en]
-        peak = w.min() if direction == "below" else w.max()
-        severity = float((threshold - w).clip(lower=0).sum()) if direction == "below" \
-            else float((w - threshold).clip(lower=0).sum())
-        rows.append(dict(start=stt, end=en, duration_m=len(w), peak=round(peak, 2),
-                         severity=round(severity, 2)))
-    return pd.DataFrame(rows)
- 
- 
 @st.cache_data(show_spinner=False)
 def spli_droughts(spli_monthly: pd.Series):
     """Return (events_df, longest_event, most_intense_event) for the SPLI series."""
-    ev = characterize_events(spli_monthly, threshold=DROUGHT_EVENT_THRESHOLD, direction="below", min_gap=1, pooling=True)
-    if ev.empty:
-        return ev, None, None
-    longest = ev.loc[ev["duration_m"].idxmax()]
-    most_intense = ev.loc[ev["peak"].idxmin()]
-    return ev, longest, most_intense
- 
- 
-def cross_corr(driver: pd.Series, response: pd.Series, maxlag=12) -> dict:
-    """Cross-correlation of driver(t) vs response(t+L): {lag: r}. (extreme_events cell 24)"""
-    common = driver.dropna().index.intersection(response.dropna().index)
-    a, b = driver.loc[common], response.loc[common]
-    return {L: a.corr(b.shift(-L)) for L in range(maxlag + 1)}
+    events = characterize_events(spli_monthly, threshold=DROUGHT_EVENT_THRESHOLD)
+    longest, most_intense = longest_and_most_intense(events)
+    return events, longest, most_intense
 
 # --------------------------------------------------------------------------- #
 # Chart builders
@@ -200,13 +146,10 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
 
 
 def render_stats(df_processed: pd.DataFrame):
-    df = df_processed.copy()
-    df[DATE_COL] = pd.to_datetime(df[DATE_COL])
-    df = df.set_index(DATE_COL, drop=False)
-
-    if df is None:
-        st.warning("No dataset loaded. Set your config path or upload the merged CSV from the sidebar.")
+    if df_processed is None or df_processed.empty:
+        st.warning("No dataset loaded.")
         st.stop()
+    df = to_datetime_index(df_processed)
     
     # Required columns check
     missing_core = [c for c in (TARGET_COL, SPLI_COL) if c not in df.columns]
@@ -221,11 +164,10 @@ def render_stats(df_processed: pd.DataFrame):
     # Monthly views of every available index column
     monthly_indices = {name: monthly(df[name]) for name in [SPLI_COL] + present_drivers}
     spli_m = monthly_indices[SPLI_COL]
-    _, longest, most_intense = spli_droughts(spli_m)
     
     # KPI row
     span = f"{df.index.min().date()} → {df.index.max().date()}"
-    ev_all, _, _ = spli_droughts(spli_m)
+    ev_all, longest, most_intense = spli_droughts(spli_m)    
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("Records (daily)", f"{len(df):,}")
     k2.metric("Period covered", span)
