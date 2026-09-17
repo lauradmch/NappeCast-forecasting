@@ -12,9 +12,9 @@ import logging
 import os
 
 
+from src.app import api_client
 from src.config import load_config
 from src.helper.constants import TARGET_COL, MIN_FORECAST_DAYS
-from requests.exceptions import RequestException
 from src.models.prophet import (build_train_frame,
                                 build_daily,
                                 plot_forecast)
@@ -39,24 +39,47 @@ logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
 # ---------------------------- FORECAST HELPERS ---------------------------
 
+
 @st.cache_data(show_spinner=False)
 def fetch_forecast(H: int):
-    """
-    Predict. Cached (@st.cache_data): only re-runs
-    when `H` changes, not on every Streamlit rerun.
-    Returns (last_train, forecast).
-    """
+    return api_client.post_predict(H)
+
+def _render_model_status(H: int) -> None:
+    """Caption with the time the model for horizon H was loaded."""
     try:
-        response = requests.post(f'{API_URL}/predict', params={'H': H}, timeout=60)
-        response.raise_for_status()
-    except RequestException as e:
-        st.error(f"Could not reach the forecast API: {e}")
-        return None
-    data = response.json()
-    forecast_df = pd.DataFrame(data["points"])
-    forecast_df["ds"] = pd.to_datetime(forecast_df["ds"])
-    last_train = pd.to_datetime(data["last_train"])
-    return last_train, forecast_df
+        info = api_client.get_model_info("Prophet", H)
+    except requests.RequestException:
+        st.caption("Model status unavailable")
+        return
+    loaded_at = info.get("loaded_at")
+    if loaded_at:
+        stamp = pd.to_datetime(loaded_at).strftime("%Y-%m-%d %H:%M")
+        st.caption(f"Model H={H} loaded at {stamp}")
+    else:
+        st.caption(f"Model H={H} not loaded yet")
+
+
+def _render_spli(daily: pd.DataFrame, forecast: pd.DataFrame, last_train: pd.Timestamp) -> None:
+    """SPLI of the forecast period, one row of metrics per month."""
+    st.markdown("**Forecast SPLI (Standardised Piezometric Level Index)**")
+    st.caption(
+        "Each forecast month standardised against the same calendar month "
+        "in prior years. Transition months are completed with observed + "
+        f"forecast days; forecast-only months need > {MIN_FORECAST_DAYS} forecast days."
+    )
+    spli_rows = spli_forecast(daily[TARGET_COL], forecast, last_train)
+    if not spli_rows:
+        st.info(
+            "No forecast month qualifies for an SPLI "
+            f"(forecast-only months need more than {MIN_FORECAST_DAYS} days)."
+        )
+        return
+    for r in spli_rows:
+        label, _ = spli_label(r["spli"])
+        b_month, b_spli, b_sev = st.columns(3)
+        b_month.metric("Month", r["month"].strftime("%B %Y"))
+        b_spli.metric("SPLI", f"{r['spli']:+.2f}")
+        b_sev.metric("Severity", label)
 
 
 # ---------------------------- METHODS ---------------------------
@@ -75,58 +98,22 @@ def render_predictions(df_prediction: pd.DataFrame) -> None:
     run = st.button("Run forecast")
 
     # auto-run once on first load with default params
-    if run or not st.session_state.get("forecast_ran", False):
-        st.session_state["forecast_ran"] = True
-        with st.spinner("Fetching forecast from API..."):
-            try:
+    if not run and st.session_state.get("forecast_ran", False):
+        return
+    st.session_state["forecast_ran"] = True
 
-                daily = build_daily(df_prediction)
-                result = fetch_forecast(H)
-                if result is None:
-                    return
-                last_train, forecast = result
-                history, _ = build_train_frame(daily, H)
+    with st.spinner("Fetching forecast from API..."):
+        try:
+            last_train, forecast = fetch_forecast(H)
+        except (requests.RequestException, KeyError) as e:
+            st.error(f"Could not reach the forecast API: {e}")
+            return
 
-                fig = plot_forecast(history, forecast, H)
-                st.plotly_chart(fig, use_container_width=True)
-
-                # display loaded_at as a caption
-                try:
-                    info = requests.get(f"{API_URL}/model/info",
-                                        params={"model": "Prophet", "horizon": H},
-                                        timeout=5).json()
-                    loaded_at = info.get("loaded_at")
-                    if loaded_at:
-                        # nicer display: "2026-08-17 14:32" instead of ISO
-                        stamp = pd.to_datetime(loaded_at).strftime("%Y-%m-%d %H:%M")
-                        st.caption(f"Model H={H} loaded at {stamp}")
-                    else:
-                        st.caption(f"Model H={H} not loaded yet")
-                except requests.RequestException:
-                    st.caption("Model status unavailable")
-
-                # ---- SPLI of the forecast period ----
-                st.markdown("**Forecast SPLI (Standardised Piezometric Level Index)**")
-                st.caption(
-                    "Each forecast month standardised against the same calendar month "
-                    "in prior years. Transition months are completed with observed + "
-                    f"forecast days; forecast-only months need > {MIN_FORECAST_DAYS} forecast days."
-                )
-                spli_rows = spli_forecast(daily[TARGET_COL], forecast, last_train)
-                if not spli_rows:
-                    st.info(
-                        "No forecast month qualifies for an SPLI "
-                        f"(forecast-only months need more than {MIN_FORECAST_DAYS} days)."
-                    )
-                else:
-                    for r in spli_rows:
-                        label, color = spli_label(r["spli"])
-                        b_month, b_spli, b_sev = st.columns(3)
-                        # Month box
-                        b_month.metric("Month", r["month"].strftime("%B %Y"))
-                        # SPLI value box (same st.metric look as app_stats)
-                        b_spli.metric("SPLI", f"{r['spli']:+.2f}")
-                        # Severity box: name + colour
-                        b_sev.metric("Severity", f"{label}")      
-            except (KeyError, ValueError) as e:
-                st.error(f"Could not compute the forecast: {e}")
+    try:
+        daily = build_daily(df_prediction)
+        history, _ = build_train_frame(daily, H)
+        st.plotly_chart(plot_forecast(history, forecast, H), use_container_width=True)
+        _render_model_status(H)
+        _render_spli(daily, forecast, last_train)
+    except (KeyError, ValueError) as e:
+        st.error(f"Could not compute the forecast: {e}")

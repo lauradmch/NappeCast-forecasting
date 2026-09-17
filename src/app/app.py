@@ -4,19 +4,12 @@
 
 #--------------------- LIBRARY ---------------------
 import streamlit as st
-import requests
 import pandas as pd
-import plotly.express as px 
-import plotly.graph_objects as go
 import boto3
-import os
-import yaml
 
-from io import StringIO
 from pathlib import Path
 from src.config import load_config
 from src.app.app_sidebar import render_sidebar
-from src.app.app_identity import render_identity
 from src.app.app_predictions import render_predictions
 from src.app.app_features import render_features
 from src.app.app_stats import render_stats
@@ -26,7 +19,6 @@ from src.helper.aws import read_csv_in_s3
 #--------------------- VARIABLES ---------------------
 CONFIG = load_config()
 
-API_URL                 = os.getenv("API_URL", "http://localhost:8000")
 CODE_BSS                = ",".join(CONFIG["api"]["piezometer"]["code_bss"])
 STATION_RAW_FILENAME    = Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['station']['raw_filename']}.csv"
 INTERIM_FILENAME        = Path(CONFIG["paths"]["data"]["interim"]) / f"{CONFIG['paths']['interim_filename']}.csv"
@@ -120,7 +112,7 @@ df_station, df_interim, df_processed = load_data()
 
 # --------------------- Sidebar menu ---------------------
 
-render_sidebar(df_station, CODE_BSS, API_URL)
+render_sidebar(df_station, CODE_BSS)
 
 #---------------------  Onglets ---------------------
 
