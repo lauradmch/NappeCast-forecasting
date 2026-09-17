@@ -14,26 +14,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from statsmodels.tsa.seasonal import STL
 from src.helper.constants import DRIVER_LABELS, TARGET_COL, SPLI_COL, DROUGHT_THRESHOLDS, DROUGHT_EVENT_THRESHOLD, DATE_COL
+from src.helper.theme import PLOTLY_LAYOUT, C_INK, C_BLUE, C_TEAL,C_DEEP, C_GRID, RDBU, DRIVER_PALETTE
 
 
-# Water / hydro palette
-C_DEEP = "#0b4f6c"      # deep water blue (headers)
-C_BLUE = "#1b98c9"      # mid blue (accent)
-C_TEAL = "#20a4a0"      # teal-green
-C_INK = "#12333f"       # near-black ink for text
-C_GRID = "#d8e6ec"      # light grid
-C_BG = "#f5fafc"        # very light background
-RDBU = "RdBu"           # diverging colormap for standardized indices
-
-PLOTLY_LAYOUT = dict(
-    template="plotly_white",
-    font=dict(family="Inter, Segoe UI, sans-serif", color=C_INK, size=13),
-    title_font=dict(color=C_DEEP, size=18),
-    margin=dict(l=60, r=30, t=60, b=50),
-    plot_bgcolor="white",
-    paper_bgcolor="white",
-    hovermode="x unified",
-)
 
 # --------------------------------------------------------------------------- #
 # Column: raw signal + the standardized index columns
@@ -189,8 +172,6 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
     """Cross-correlation of selected drivers vs SPLI (extreme_events — last graph)."""
     resp = monthly_indices[SPLI_COL]
     fig = go.Figure()
-    palette = [C_BLUE, C_TEAL, C_DEEP, "#e07b39", "#8e5ea2", "#3cb371",
-               "#c0504d", "#4f81bd", "#9bbb59"]
     best_txt = []
     for i, name in enumerate(selected_drivers):
         if name not in monthly_indices:
@@ -204,7 +185,7 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
                             f"{valid[best_lag]:.2f} at lag {best_lag} mo")
         fig.add_trace(go.Scatter(
             x=lags, y=rs, mode="lines+markers", name=DRIVER_LABELS.get(name, name),
-            line=dict(color=palette[i % len(palette)], width=2), marker=dict(size=7),
+            line=dict(color=DRIVER_PALETTE[i % len(DRIVER_PALETTE)], width=2), marker=dict(size=7),
             hovertemplate=DRIVER_LABELS.get(name, name) +
             "<br>lag = %{x} mo<br>r = %{y:.2f}<extra></extra>"))
     fig.add_hline(y=0, line=dict(color="grey", width=0.6))
@@ -334,5 +315,3 @@ def render_stats(df_processed: pd.DataFrame):
             st.markdown("  \n".join(best_txt))
     st.markdown("</div>", unsafe_allow_html=True)
     
-
-
