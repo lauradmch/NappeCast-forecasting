@@ -6,14 +6,15 @@ Contenu de la sidebar
 
 # --------------------------- LIBRARY --------------------------------
 import ast
-import pandas as pd
-import streamlit as st
-import requests
 import os
-import plotly.express as px 
 
-from src.config import load_config
+import pandas as pd
+import plotly.express as px
+import requests
+import streamlit as st
+
 from src.app import api_client
+from src.config import load_config
 
 # ---------------------------- VARIABLES ---------------------------
 CONFIG = load_config()
