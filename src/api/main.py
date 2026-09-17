@@ -23,7 +23,7 @@ from mlflow import MlflowClient
 
 from typing import Dict, Optional, Literal
 from pathlib import Path
-from src.config import load_config
+from src.config import load_config, mlflow_tracking_uri
 from src.data.make_dataset import build_dataset
 from src.data.feat_dataset import feat_dataset
 from src.helper.aws import upload_file_to_s3, read_csv_in_s3
@@ -35,6 +35,7 @@ from src.api.schemas import (
     PredictResponse,
     TrainingResponse,
 )
+from src.models.production import promote
 from src.models.prophet import (build_train_frame,
                                 build_future_frame,
                                 build_daily,
@@ -49,7 +50,7 @@ PROCESSED_FILENAME      = Path(CONFIG["paths"]["data"]["processed"]) / f"{CONFIG
 # TODO: commit tuning_results files and add path in config
 TUNING_CSV_PATH         = Path(__file__).resolve().parents[2] / "src" / "models"
 
-EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME", "prophet-groundwater-tuning")
+EXPERIMENT_NAME = CONFIG["mlflow"]["experiment_name"]
 
 logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
 logger = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ def model_info(model: Optional[str] = None, source: Optional[str] = None, horizo
 
 
 @app.post("/model/reload", response_model=ModelInfoResponse, tags=["monitoring"])
-def model_reload(model: Optional[str] = None, source: Optional[str] = None, horizon: Optional[int] = None):
+def model_reload(model: Optional[str] = None, source: Optional[str] = None, horizon: Optional[int] = None, _: None = Depends(verify_secret)):
     """Force un rechargement du modèle (type/source donnés, ou modèle actif par défaut) — utile après un nouvel entraînement."""
     try:
         load_model(model=model, source=source, horizon=horizon, force_reload=True)
@@ -145,8 +146,7 @@ def load_cached_dataset() -> pd.DataFrame:
 
 @app.post("/train", response_model=TrainingResponse, tags=["training"])
 def training(H: Literal[14, 30], _: None = Depends(verify_secret)):
-    if "MLFLOW_TRACKING_URI" in os.environ:
-        mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+    mlflow.set_tracking_uri(mlflow_tracking_uri())
     mlflow.set_experiment(EXPERIMENT_NAME)
 
     # Registered name + alias from CONFIG (name is nested by horizon → Prophet)
@@ -176,10 +176,12 @@ def training(H: Literal[14, 30], _: None = Depends(verify_secret)):
         logger.warning("No @production for %s — bootstrapping from tuning CSV", name)
         prev_version = None
         best = pd.read_csv(TUNING_CSV_PATH / f"tuning_results_H{H}.csv").iloc[0]
-        raw = {k: str(best[k]) for k in
-               ("changepoint_prior_scale", "seasonality_prior_scale", "changepoint_range")}
-        # merge in BASE_PARAMS so the first run has the full config too
-        #raw = {**{k: str(v) for k, v in BASE_PARAMS.items()}, **raw}
+        tuned = {k: str(best[k]) for k in
+                 ("changepoint_prior_scale", "seasonality_prior_scale", "changepoint_range")}
+        # merge the fixed params so the first model == the tuned config
+        # (otherwise weekly/daily_seasonality fall back to Prophet's "auto")
+        base = CONFIG["model"]["prophet"]["base_params"]
+        raw = {**{k: str(v) for k, v in base.items()}, **tuned}
 
     params = {k: _cast(k, v) for k, v in raw.items() if k in ALLOWED}
 
@@ -190,8 +192,10 @@ def training(H: Literal[14, 30], _: None = Depends(verify_secret)):
 
     # --- 3. Fit + log + register + promote ---
     with mlflow.start_run(run_name=f"prophet-production-H{H}") as run:
-        mlflow.log_params({**params, "horizon_days": H})
-        mlflow.set_tag("horizon", str(H))
+        mlflow.log_params({**params, "horizon_days": H,
+                           "last_train_date": str(df_train["ds"].max().date()),
+                           "n_train_rows": len(df_train)})
+        mlflow.set_tags({"horizon": str(H), "train_type": "refit"})   # vs "tuning"
 
         model = Prophet(**params)
         for col in regressor_cols:
@@ -200,19 +204,23 @@ def training(H: Literal[14, 30], _: None = Depends(verify_secret)):
 
         info = mlflow.prophet.log_model(
             pr_model=model,
-            artifact_path="model",
+            name="model",                        # artifact_path is deprecated in MLflow 3
             registered_model_name=name,          # <-- CONFIG name
         )
-        new_version = info.registered_model_version
-        client.set_registered_model_alias(name, alias, new_version)
+        new_version = str(info.registered_model_version)
         run_id = run.info.run_id
 
-    # --- 4. Swap the API cache ---
+    # --- 4. Promote: same hyperparams, more data -> refit replaces production ---
+    #     (champion/challenger comparison is done in prophet_tune.py, where params change)
+    promote(client, name, new_version, mv if prev_version else None,
+             reason="scheduled refit on new data (same hyperparameters)")
+
+    # --- 5. Swap the API cache (same process: no HTTP needed) ---
     load_model(model="Prophet", horizon=H, force_reload=True)
 
     return {
         "horizon": H,
-        "new_version": str(new_version),
+        "new_version": new_version,
         "previous_version": str(prev_version) if prev_version else None,
         "run_id": run_id,
     }

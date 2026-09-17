@@ -33,6 +33,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 import mlflow
+from mlflow import MlflowClient
 import mlflow.prophet
 from prophet import Prophet
 from src.models.prophet import (build_train_frame,
@@ -42,7 +43,13 @@ from src.models.prophet import (build_train_frame,
 from prophet.diagnostics import cross_validation, performance_metrics
 from dotenv import load_dotenv
 
+from src.config import load_config, mlflow_tracking_uri, PROJECT_ROOT
+from src.models.production import promote_if_better, registered_name, notify_api_reload
+
 load_dotenv()
+CONFIG = load_config()
+# NB: no module-level MlflowClient() -> it would be created before
+# mlflow.set_tracking_uri() in main() and could point to the wrong server.
 
 # Quiet Prophet / cmdstanpy chatter during the grid search
 logging.getLogger("prophet").setLevel(logging.WARNING)
@@ -51,7 +58,10 @@ logging.getLogger("cmdstanpy").setLevel(logging.ERROR)
 # ---------------------------------------------------------------------------
 # 0. Config
 # ---------------------------------------------------------------------------
-INPUT_PATH = Path("../..") / "data" / "processed" / "dataset_processed.csv"
+# Absolute path -> works whatever the working directory (run from project root:
+# python -m src.models.prophet_tune)
+INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "dataset_processed.csv"
+RESULTS_DIR = Path(__file__).resolve().parent
 
 TARGET = "niveau_nappe_eau"
 DAILY_FEATURES = [
@@ -70,13 +80,8 @@ CV_INITIAL_FRAC = 0.8   # fraction of the series used before the first cutoff
 CV_PARALLEL = "processes"
 
 # Fixed Prophet params (not tuned)
-BASE_PARAMS = {
-    "seasonality_mode": "additive",
-    "weekly_seasonality": False,
-    "daily_seasonality": False,
-    "yearly_seasonality": True,
-    "interval_width": 0.80,       # affects coverage only, not point-forecast loss
-}
+# Single definition in configs/config.yaml (also used by API /train)
+BASE_PARAMS = dict(CONFIG["model"]["prophet"]["base_params"])
 
 # ---- Tuning grid ----------------------------------------------------------
 # Trimmed vs. the reference paper: CPS denser in the useful low region, SPS
@@ -93,8 +98,7 @@ PARAM_GRID = {
 LAMBDA_DEGRADATION = 0.4    # weight on horizon error growth
 LAMBDA_SPREAD      = 0.3    # weight on RMSE/MAE blow-up ratio
 
-EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME", "prophet-groundwater-tuning")
-
+EXPERIMENT_NAME = CONFIG["mlflow"]["experiment_name"]
 
 # ---------------------------------------------------------------------------
 # 1. Data
@@ -150,7 +154,33 @@ def score_config(df_prophet, regressor_cols, params, H):
         "rmse_std_ratio": rmse / std_y,          # <1 beats "predict the mean"
         "rmse_mae": rmse / mae,                   # ~1 uniform, >>1 big blow-ups
         "horizon_degradation": degradation,      # robustness signal
+        # share of observations inside [yhat_lower, yhat_upper]; calibrated if ~= interval_width
+        "coverage": float(((df_cv["y"] >= df_cv["yhat_lower"]) &
+                           (df_cv["y"] <= df_cv["yhat_upper"])).mean()),
     }
+
+
+def select_score(rmse, horizon_degradation, rmse_mae):
+    """
+    Penalized RMSE (lower = better). Single definition, used both for the grid
+    search and to re-score the production champion -> identical criterion.
+    Works on floats and on pandas Series.
+    """
+    deg_pen = np.clip(horizon_degradation - 1, 0, None)
+    spread_pen = np.clip(rmse_mae - 1, 0, None)
+    return rmse * (1 + LAMBDA_DEGRADATION * deg_pen) * (1 + LAMBDA_SPREAD * spread_pen)
+
+
+def rescore_params(daily, H, run_params: dict) -> float:
+    """
+    Re-run the CV of a past model's hyperparameters on TODAY's data.
+    run_params comes from MLflow, where every param is stored as a string.
+    """
+    df_prophet, regressor_cols = build_train_frame(daily, H)
+    tuned = {k: float(run_params[k]) for k in PARAM_GRID}   # "0.05" -> 0.05
+    params = {**BASE_PARAMS, **tuned}
+    m = score_config(df_prophet, regressor_cols, params, H)
+    return float(select_score(m["rmse"], m["horizon_degradation"], m["rmse_mae"]))
 
 
 # ---------------------------------------------------------------------------
@@ -196,10 +226,8 @@ def tune_horizon(daily, H) -> pd.DataFrame:
         # select_score: RMSE penalized when error grows across the horizon
         # (degradation>1) or is driven by a few big misses (rmse_mae>1) — lowest wins.
         results = pd.DataFrame(rows)
-        results["select_score"] = (
-            results["rmse"]
-            * (1 + LAMBDA_DEGRADATION * (results["horizon_degradation"] - 1).clip(lower=0))
-            * (1 + LAMBDA_SPREAD      * (results["rmse_mae"]            - 1).clip(lower=0))
+        results["select_score"] = select_score(
+            results["rmse"], results["horizon_degradation"], results["rmse_mae"]
         )
         results = results.sort_values("select_score").reset_index(drop=True)
         mlflow.log_metric("best_cv_rmse", results.iloc[0]["rmse"])
@@ -217,19 +245,30 @@ def refit_best(daily, H, best_row):
     tuned = {k: best_row[k] for k in PARAM_GRID}
     params = {**BASE_PARAMS, **tuned}
 
-    # TODO : enregistrer le modele choisi localement
+    model_name = registered_name(H)          # "nappecast_Prophet_h14" (same as the API)
 
-    with mlflow.start_run(run_name=f"prophet-forecast-best-H{H}"):
+    with mlflow.start_run(run_name=f"prophet-forecast-best-H{H}") as run:
         mlflow.log_params({**params, "horizon_days": H})
         model = fit_prophet(df_prophet, regressor_cols, params)
         forecast = model.predict(future)
 
         mlflow.log_metrics({
             k: float(best_row[k]) for k in
-            ["rmse", "mae", "r2", "rmse_std_ratio", "rmse_mae", "horizon_degradation"]
+            ["rmse", "mae", "r2", "rmse_std_ratio", "rmse_mae", "coverage",
+             "horizon_degradation", "select_score"]      # select_score = promotion criterion
         })
-        mlflow.prophet.log_model(pr_model=model, name="nappecast_Prophet") #f"prophet-best-H{H}")
-        mlflow.set_tag("horizon", str(H))
+        mlflow.set_tags({"horizon": str(H), "train_type": "tuning"})
+
+        # log_model with registered_model_name -> creates a NEW VERSION in the registry
+        # (the registered model itself is created on the first call)
+        model_info = mlflow.prophet.log_model(
+            pr_model=model,
+            name="model",                        # artifact folder inside the run
+            registered_model_name=model_name,    # registry entry read by the API
+        )
+        version = str(model_info.registered_model_version)
+        mlflow.set_tag("registered_version", version)
+        print(f"Registered {model_name} v{version} (run {run.info.run_id})")
 
         # --- forecast figure ---
 
@@ -257,7 +296,8 @@ def refit_best(daily, H, best_row):
         ax.plot(fut.ds, fut.yhat, "-", color="#d62728", lw=2.5,         # forecast horizon
                 label=f"Forecast (+{H}d)")
         ax.fill_between(fut.ds, fut.yhat_lower, fut.yhat_upper,             # uncertainty band
-                        color="#d62728", alpha=0.18, label="95% interval")
+                        color="#d62728", alpha=0.18,
+                        label=f"{model.interval_width:.0%} interval")
         ax.axvline(last_train, ls="--", color="gray", lw=1)
         ax.set_title(f"Groundwater level — Prophet forecast (H={H} days)", fontweight="bold")
         ax.set_xlabel("Date"); ax.set_ylabel("Groundwater level (m)")
@@ -268,13 +308,15 @@ def refit_best(daily, H, best_row):
         mlflow.log_figure(fig2, f"forecast_best_H{H}.png")
         plt.close(fig2)
 
+    return {"name": model_name, "version": version, "run_id": run.info.run_id,
+            "select_score": float(best_row["select_score"])}
+
 
 # ---------------------------------------------------------------------------
 # 5. Main
 # ---------------------------------------------------------------------------
 def main():
-    if "MLFLOW_TRACKING_URI" in os.environ:
-        mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+    mlflow.set_tracking_uri(mlflow_tracking_uri())
     mlflow.set_experiment(EXPERIMENT_NAME)
 
     daily = load_daily()
@@ -282,7 +324,7 @@ def main():
 
     for H in HORIZONS:
         results = tune_horizon(daily, H)
-        out_csv = f"tuning_results_H{H}.csv"
+        out_csv = RESULTS_DIR / f"tuning_results_H{H}.csv"
         results.to_csv(out_csv, index=False)
         all_results.append(results)
 
@@ -296,10 +338,22 @@ def main():
         print(f"\nBest H={H}d: CPS={best['changepoint_prior_scale']}, "
               f"SPS={best['seasonality_prior_scale']}, "
               f"cp_range={best['changepoint_range']}  ->  RMSE={best['rmse']:.3f}")
-        refit_best(daily, H, best)
+        challenger = refit_best(daily, H, best)
+
+        # Champion / challenger: the champion is re-scored on the SAME data and
+        # CV folds as the challenger, with the SAME select_score formula.
+        decision = promote_if_better(
+            name=challenger["name"],
+            challenger_version=challenger["version"],
+            challenger_score=challenger["select_score"],
+            rescore_champion=lambda run_params, H=H: rescore_params(daily, H, run_params),
+        )
+        print(f"Promotion H={H}d: {decision}")
+        if decision["promoted"]:
+            notify_api_reload(H)
 
     combined = pd.concat(all_results, ignore_index=True)
-    combined.to_csv("tuning_results_all.csv", index=False)
+    combined.to_csv(RESULTS_DIR / "tuning_results_all.csv", index=False)
     print("\nSaved: tuning_results_H14.csv, tuning_results_H30.csv, tuning_results_all.csv")
 
 

@@ -10,8 +10,11 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from src.models.preprocessing import preprocessing
+from src.config import load_config, mlflow_tracking_uri
 from xgboost import XGBRegressor
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+
+CONFIG = load_config()
 
 load_dotenv()
 
@@ -30,8 +33,8 @@ def xgboost_regressor(df, n_estimators=100, learning_rate=0.1, max_depth=4,
     Logs parameters, metrics and model to MLflow.
     Returns predictions and evaluation metrics DataFrames.
     """
-    mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
-    mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME"))
+    mlflow.set_tracking_uri(mlflow_tracking_uri())
+    mlflow.set_experiment(CONFIG["mlflow"]["experiment_name"])
 
     X_train, X_test, y_train, y_test = preprocessing(df, test_size=30)
 

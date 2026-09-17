@@ -1,194 +1,191 @@
-import numpy as np
-import pandas as pd
-from pathlib import Path
+"""
+Train, evaluate and log ONE Prophet configuration (no grid search).
+
+Use cases
+---------
+* Baseline      : Prophet defaults for the tuned params, to show what tuning gains
+* Manual test   : try a config by hand before adding it to the tuning grid
+* Candidate     : optionally register it and let champion/challenger decide
+
+Same pipeline as the rest of the project:
+* data frames          -> src.models.prophet (build_daily / build_train_frame / build_future_frame)
+* fixed params         -> configs/config.yaml : model.prophet.base_params
+* fit / CV / score     -> src.models.prophet_tune (fit_prophet, score_config, select_score)
+* MLflow server + exp. -> src.config.mlflow_tracking_uri() + config mlflow.experiment_name
+* registry & promotion -> src.models.production
+
+Run from the project root:
+    python -m src.models.prophet_predict --horizon 14                      # baseline (defaults)
+    python -m src.models.prophet_predict --horizon 30 --cps 0.1 --sps 1.0  # manual config
+    python -m src.models.prophet_predict --horizon 14 --from-production    # re-evaluate @production params
+    python -m src.models.prophet_predict --horizon 14 --cps 0.1 --register # candidate -> champion/challenger
+"""
+
+import argparse
+import logging
+
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+
 import mlflow
 import mlflow.prophet
-from prophet import Prophet
-from prophet.diagnostics import cross_validation, performance_metrics
-import os
-from dotenv import load_dotenv
+from mlflow import MlflowClient
 
-load_dotenv()
+from src.config import load_config, mlflow_tracking_uri
+from src.models.prophet import build_train_frame, build_future_frame, plot_forecast
+from src.models.prophet_tune import (
+    BASE_PARAMS, PARAM_GRID, EXPERIMENT_NAME,
+    load_daily, fit_prophet, score_config, select_score, rescore_params,
+)
+from src.models.production import (
+    PRODUCTION_ALIAS, get_version_by_alias, get_run_params,
+    notify_api_reload, promote_if_better, registered_name,
+)
+
+CONFIG = load_config()
+logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
+logger = logging.getLogger(__name__)
+logging.getLogger("prophet").setLevel(logging.WARNING)
+logging.getLogger("cmdstanpy").setLevel(logging.ERROR)
+
+# Prophet's own defaults for the tuned params -> the "no tuning" baseline
+PROPHET_DEFAULTS = {
+    "changepoint_prior_scale": 0.05,
+    "seasonality_prior_scale": 10.0,
+    "changepoint_range": 0.8,
+}
+
 
 # ---------------------------------------------------------------------------
-# 1. Training dataset
+# 1. Which config?
 # ---------------------------------------------------------------------------
+def resolve_tuned_params(args) -> tuple[dict, str]:
+    """Return (tuned params, source label). CLI values override the chosen base."""
+    if args.from_production:
+        client = MlflowClient()
+        mv = get_version_by_alias(client, registered_name(args.horizon), PRODUCTION_ALIAS)
+        if mv is None:
+            raise SystemExit(f"No @{PRODUCTION_ALIAS} for H={args.horizon}")
+        run_params = get_run_params(client, mv)
+        tuned = {k: float(run_params[k]) for k in PARAM_GRID}
+        source = f"production_v{mv.version}"
+    else:
+        tuned = dict(PROPHET_DEFAULTS)
+        source = "prophet_defaults"
 
-# Loading the dataframe
-input_path = Path("../..") / 'data' / 'processed' / 'dataset_processed.csv'
-dataset = pd.read_csv(input_path)
-dataset = dataset.set_index("date_index", drop=False)
-dataset.index = pd.to_datetime(dataset.index)
-df_daily = dataset.copy()
+    overrides = {"changepoint_prior_scale": args.cps,
+                 "seasonality_prior_scale": args.sps,
+                 "changepoint_range": args.cpr}
+    overrides = {k: v for k, v in overrides.items() if v is not None}
+    if overrides:
+        tuned.update(overrides)
+        source = "manual" if source == "prophet_defaults" else f"{source}+manual"
+    return tuned, source
 
-TARGET = "niveau_nappe_eau"
-DAILY_FEATURES = [
-    "shortwave_radiation_sum", "et0_fao_evapotranspiration",
-    "soil_temperature_0_to_100cm_mean",
-    "P_cum_90d", "Peff_cum_90d",
-    "Temperature_mean_90d",
-]
-daily = df_daily[[TARGET] + DAILY_FEATURES].groupby(level=0).mean()
-assert not (set(DAILY_FEATURES) - set(df_daily.columns)), \
-    f"missing features: {set(DAILY_FEATURES) - set(df_daily.columns)}"
 
 # ---------------------------------------------------------------------------
-# 2. Entraînement + tracking MLflow
+# 2. Train + evaluate + log
 # ---------------------------------------------------------------------------
-def interpret_prophet(df_cv, y_train, label="model"):
-        """
-        df_cv     : output of prophet.cross_validation (needs y, yhat, *_lower/upper, cutoff, ds)
-        y_train   : the training target series (df_prophet['y']) — sets the scale baseline
-        target_interval : the interval_width you passed to Prophet (for coverage check)
-        """
-        perf = performance_metrics(df_cv)                     # horizon-bucketed table
-        rmse, mae = perf["rmse"].mean(), perf["mae"].mean()   # avg across horizons
-        std_y = y_train.std()
+def train_and_log(daily, H: int, tuned: dict, source: str, register: bool) -> dict:
+    df_prophet, regressor_cols = build_train_frame(daily, H)
+    future, _ = build_future_frame(daily, H)
+    params = {**BASE_PARAMS, **tuned}          # same merge as prophet_tune.py
 
-        # --- scale-normalized skill vs. "predict the mean" ---
-        rmse_ratio   = rmse / std_y                           # <1 good, ~1 worthless
-        rmse_mae     = rmse / mae                             # ~1 uniform, >>1 = big blow-ups
+    with mlflow.start_run(run_name=f"prophet-single-H{H}-{source}") as run:
+        # Same param keys as the tuning best run -> readable by rescore_params / /train
+        mlflow.log_params({**params, "horizon_days": H,
+                           "last_train_date": str(df_prophet["ds"].max().date()),
+                           "n_train_rows": len(df_prophet)})
+        mlflow.set_tags({"horizon": str(H), "train_type": "single", "params_source": source})
 
-        # R2: coefficient of determination
-        ss_res = np.sum((df_cv["y"] - df_cv["yhat"])**2)
-        ss_tot = np.sum((df_cv["y"] - df_cv["y"].mean())**2)
-        r2 = 1 - ss_res/ss_tot
+        # CV metrics: same function + same score as the grid search -> comparable
+        metrics = score_config(df_prophet, regressor_cols, params, H)
+        metrics["select_score"] = float(select_score(
+            metrics["rmse"], metrics["horizon_degradation"], metrics["rmse_mae"]))
+        mlflow.log_metrics({k: float(v) for k, v in metrics.items()})
 
-        print(f"\n================ {label} ================")
-        print(f"RMSE            : {rmse:.3f}   (target unit)")
-        print(f"MAE             : {mae:.3f}   (typical error, target unit)")
-        print(f"std(y)          : {std_y:.3f}")
-        print(f"R2              : {r2:.3f}")
-        print(f"RMSE / std(y)   : {rmse_ratio:.2f}  ->", 
-            "strong" if rmse_ratio < 0.5 else
-            "useful" if rmse_ratio < 0.8 else
-            "weak"   if rmse_ratio < 1.0 else "no better than the mean")
-        print(f"RMSE / MAE      : {rmse_mae:.2f}  ->",
-            "errors uniform" if rmse_mae < 1.3 else
-            "some large misses" if rmse_mae < 1.8 else "dominated by big blow-ups")
-
-        # --- horizon read: does error grow, and how fast? ---
-        first, last = perf.iloc[0], perf.iloc[-1]
-        print(f"RMSE @ {first['horizon']}  : {first['rmse']:.3f}")
-        print(f"RMSE @ {last['horizon']}   : {last['rmse']:.3f}   "
-            f"(x{last['rmse']/first['rmse']:.1f} degradation across horizon)")
-
-        return r2, std_y, rmse_ratio, rmse_mae
-
-
-def train_and_log(daily: pd.DataFrame) -> str:
-    mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
-    mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME"))
-
-    #  Future-aware lagged regressors: Extends the date range by 30 days 
-    H = 14                                    # days ahead == lag 
-    period = 45
-    future_idx = pd.date_range(daily.index.min(), periods=len(daily) + H, freq="D")
-    df_ext = daily.reindex(future_idx)        # H new empty rows at the end
-    # shifting values forward by 30 days
-    for col in DAILY_FEATURES:
-        df_ext[f"{col}_lag{H}"] = df_ext[col].shift(H)   # observed value pulled forward
-    regressor_cols = [f"{col}_lag{H}" for col in DAILY_FEATURES]
-
-    #  single frame: ds, y, lagged regressors
-    df_all = pd.DataFrame({"ds": df_ext.index, "y": df_ext[TARGET].values})
-    for col in regressor_cols:
-        df_all[col] = df_ext[col].values
-
-    # Train = y known and all regressors known
-    df_prophet = df_all.dropna(subset=["y"] + regressor_cols).reset_index(drop=True)
-    # Predict frame: regressors known (history + H forecast days)
-    future = df_all[["ds"] + regressor_cols].dropna(subset=regressor_cols).reset_index(drop=True)
-
-    params = {
-        "seasonality_mode": "additive",
-        "weekly_seasonality": False,
-        "daily_seasonality":False,
-        "yearly_seasonality":True, 
-        "interval_width":0.95,
-        "changepoint_prior_scale":0.05
-    }
-
-    with mlflow.start_run(run_name="prophet-forecast") as run:
-        mlflow.log_params(params)
-        mlflow.log_params({                    # backtest / setup config
-            "horizon": f"{H} days",
-            "cv_period": f"{period} days",
-            "cv_initial_frac": 0.8,
-        })
-        # Fit
-        model = Prophet(**params)
-        for col in regressor_cols:
-            model.add_regressor(col)
-        model.fit(df_prophet)
-
-        # 5. Forecast
+        # Final fit on all known data + forecast
+        model = fit_prophet(df_prophet, regressor_cols, params)
         forecast = model.predict(future)
 
-        # 6. Rolling backtest (calendar days)
-        n_days = (df_prophet.ds.max() - df_prophet.ds.min()).days
-        df_cv = cross_validation(model, horizon=f"{H} days", period=f"{period} days",
-                                initial=f"{int(n_days * 0.8)} days")
+        # Figures: Prophet components view + interactive forecast (same plot as the app)
+        fig1 = model.plot(forecast)
+        plt.title(f"Groundwater level (m) - Prophet + lagged weather (H={H}d)")
+        mlflow.log_figure(fig1, f"prediction_H{H}.png")
+        plt.close(fig1)
+        fig2 = plot_forecast(df_prophet, forecast, H, interval_width=model.interval_width)
+        mlflow.log_figure(fig2, f"forecast_H{H}.html")
 
-        metrics_df = performance_metrics(df_cv)
-        r2, std_y, rmse_ratio, rmse_mae = interpret_prophet(df_cv, df_prophet["y"])
-        mlflow.log_metrics({
-            "rmse": metrics_df["rmse"].mean(),
-            "mae": metrics_df["mae"].mean(),
-            "mape": metrics_df["mape"].mean(),
-            "r2": r2,
-            "std_y": std_y,
-            "rmse_std_ratio": rmse_ratio,
-            "rmse_mae": rmse_mae,
-        })
-  
+        info = {"run_id": run.info.run_id, "metrics": metrics, "version": None}
 
-        mlflow.prophet.log_model(
-            pr_model=model,
-            name="prophet-forecast"
+        if register:
+            model_info = mlflow.prophet.log_model(
+                pr_model=model, name="model",
+                registered_model_name=registered_name(H),
+            )
+            info["version"] = str(model_info.registered_model_version)
+            mlflow.set_tag("registered_version", info["version"])
+        else:
+            # Kept in the run (loadable with runs:/<run_id>/model) but NOT in the registry
+            mlflow.prophet.log_model(pr_model=model, name="model")
+
+    print_report(H, source, params, metrics)
+    return info
+
+
+def print_report(H, source, params, m):
+    width = params["interval_width"]
+    print(f"\n================ H={H}d  ({source}) ================")
+    print("params          : " + ", ".join(f"{k}={params[k]}" for k in PARAM_GRID))
+    print(f"RMSE / MAE      : {m['rmse']:.3f} / {m['mae']:.3f} m")
+    print(f"R2              : {m['r2']:.3f}")
+    print(f"RMSE / std(y)   : {m['rmse_std_ratio']:.2f}  ->",
+          "strong" if m["rmse_std_ratio"] < 0.5 else
+          "useful" if m["rmse_std_ratio"] < 0.8 else
+          "weak" if m["rmse_std_ratio"] < 1.0 else "no better than the mean")
+    print(f"RMSE / MAE      : {m['rmse_mae']:.2f}  ->",
+          "errors uniform" if m["rmse_mae"] < 1.3 else
+          "some large misses" if m["rmse_mae"] < 1.8 else "dominated by big blow-ups")
+    print(f"degradation     : x{m['horizon_degradation']:.1f} across the horizon")
+    print(f"select_score    : {m['select_score']:.4f}  (lower = better, same as tuning)")
+
+
+# ---------------------------------------------------------------------------
+# 3. Main
+# ---------------------------------------------------------------------------
+def main():
+    parser = argparse.ArgumentParser(description="Train/evaluate one Prophet config.")
+    parser.add_argument("--horizon", type=int, choices=[14, 30], required=True)
+    parser.add_argument("--cps", type=float, help="changepoint_prior_scale")
+    parser.add_argument("--sps", type=float, help="seasonality_prior_scale")
+    parser.add_argument("--cpr", type=float, help="changepoint_range")
+    parser.add_argument("--from-production", action="store_true",
+                        help="start from the params of the current @production model")
+    parser.add_argument("--register", action="store_true",
+                        help="register the model and run champion/challenger promotion")
+    args = parser.parse_args()
+
+    mlflow.set_tracking_uri(mlflow_tracking_uri())
+    mlflow.set_experiment(EXPERIMENT_NAME)
+
+    H = args.horizon
+    daily = load_daily()
+    tuned, source = resolve_tuned_params(args)
+    info = train_and_log(daily, H, tuned, source, register=args.register)
+    print(f"\nRun ID: {info['run_id']}")
+
+    if args.register:
+        decision = promote_if_better(
+            name=registered_name(H),
+            challenger_version=info["version"],
+            challenger_score=info["metrics"]["select_score"],
+            rescore_champion=lambda run_params: rescore_params(daily, H, run_params),
         )
+        print(f"Promotion H={H}d: {decision}")
+        if decision["promoted"]:
+            notify_api_reload(H)
 
-        print(f"Run ID: {run.info.run_id}")
-        print(f"RMSE moyen (CV): {metrics_df['rmse'].mean():.3f}")
-        print(f"R2 (CV): {r2:.3f}")
-
-        # --- visualize ---
-        fig1 = model.plot(forecast); plt.title(f"Groundwater level (m) -  Prophet + lagged weather (H={H}d)")
-        mlflow.log_figure(fig1, "prediction.png")
-
-
-        plt.rcParams.update({
-            "figure.dpi": 120, "axes.grid": True, "grid.alpha": 0.3,
-            "axes.spines.top": False, "axes.spines.right": False,
-            "font.size": 11,
-        })
-        # forecast at the last training date
-        last_train = df_prophet.ds.max()
-        hist = forecast[forecast.ds <= last_train]
-        fut = forecast[forecast.ds > last_train]
-
-        fig2, ax = plt.subplots(figsize=(10,6))
-        ax.plot(df_prophet.ds, df_prophet.y, ".", color="#0f5792", ms=6,            # observed ground truth
-                label="Observed")
-        ax.plot(hist.ds, hist.yhat, ".", color="#d6272789", ms=6,           # prediction on history
-                label=f"Prediction")
-        ax.plot(fut.ds, fut.yhat, "-", color="#d62728", lw=2.5,         # forecast horizon
-                label=f"Forecast (+{H}d)")
-        ax.fill_between(fut.ds, fut.yhat_lower, fut.yhat_upper,             # uncertainty band
-                        color="#d62728", alpha=0.18, label="95% interval")
-        ax.axvline(last_train, ls="--", color="gray", lw=1)
-        ax.set_title(f"Groundwater level — Prophet forecast (H={H} days)", fontweight="bold")
-        ax.set_xlabel("Date"); ax.set_ylabel("Groundwater level (m)")
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
-        ax.set_xlim(pd.Timestamp("2026-01-01"), fut["ds"].max())
-        ax.legend(loc="upper left", framealpha=0.9)
-        fig2.autofmt_xdate(); 
-        mlflow.log_figure(fig2, "forecast.png")
-
-        return run.info.run_id
 
 if __name__ == "__main__":
-    run_id = train_and_log(daily)
-    print(run_id)
+    main()

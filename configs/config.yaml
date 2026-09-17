@@ -61,6 +61,13 @@ model:
       random_state: 42
   prophet:
     type: "Prophet"
+    # Fixed Prophet params (NOT tuned), shared by prophet_tune.py and API /train
+    base_params:
+      seasonality_mode: "additive"
+      weekly_seasonality: false
+      daily_seasonality: false
+      yearly_seasonality: true
+      interval_width: 0.80
 
     params:
       h14:
