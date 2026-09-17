@@ -4,11 +4,9 @@ Contenu d'onglet identity'
 """
 
 # --------------------------- LIBRARY --------------------------------
-import ast
 import pandas as pd
+import plotly.express as px
 import streamlit as st
-import requests
-import plotly.express as px 
 
 # ---------------------------- VARIABLES ---------------------------
 

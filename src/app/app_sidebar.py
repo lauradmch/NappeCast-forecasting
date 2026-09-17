@@ -6,12 +6,14 @@ Contenu de la sidebar
 
 # --------------------------- LIBRARY --------------------------------
 import ast
-import pandas as pd
-import streamlit as st
-import requests
 import os
-import plotly.express as px 
 
+import pandas as pd
+import plotly.express as px
+import requests
+import streamlit as st
+
+from src.app import api_client
 from src.config import load_config
 
 # ---------------------------- VARIABLES ---------------------------
@@ -30,9 +32,7 @@ def _parse_list_str(value: str) -> str:
         pass
     return value
 
-def render_sidebar(df_station: pd.DataFrame, 
-                   code_bss: str, 
-                   api_url: str) -> None:
+def render_sidebar(df_station: pd.DataFrame, code_bss: str) -> None:
     station = df_station.iloc[0]  # ligne unique -> Series pour l'affichage texte
     with st.sidebar:
         st.header(f"**Piezometer {station['libelle_pe']}**")
@@ -71,43 +71,34 @@ def render_sidebar(df_station: pd.DataFrame,
 
         if st.button("Vérifier la connexion à l'API"):
             try:
-                r = requests.get(f"{api_url}/health", timeout=5)
-                r.raise_for_status()
+                api_client.get_health()
                 st.success("API disponible ✅")
-
-            except Exception as e:
+            except requests.RequestException as e:
                 st.error(f"API indisponible : {e}")
 
         if st.button("Mettre à jour les données"):
             try:
                 with st.spinner("Traitement en cours, cela peut prendre jusqu'à une minute..."):
-                    r = requests.get(f"{api_url}/data", timeout=60)
-                    r.raise_for_status()
-
-                df_station = pd.read_json(r.json()["stations"], orient="split")
-                df_processed = pd.read_json(r.json()["processed"], orient="split")
-
-            except Exception as e:
+                    result = api_client.run_collect_pipeline()
+                st.cache_data.clear()   # force app.py to reload the CSVs from S3
+                st.success(f"Données mises à jour : {result['processed_rows']} lignes")
+            except requests.RequestException as e:
                 st.error(f"API indisponible : {e}")
 
         if st.button("Vérifier l'état des modèles"):
             try:
-                response = requests.get(f"{API_URL}/model/info/all", timeout=30)
-                response.raise_for_status()
-                info = response.json()
-
-                rows = []
-                for model_type, data in info.items():
-                    rows.append({
+                info = api_client.get_all_models_info()
+            except requests.RequestException as e:
+                st.error(f"Could not retrieve model status: {e}")
+            else:
+                rows = [
+                    {
                         "Model": model_type,
                         "Loaded": "✅" if data["loaded"] else "❌",
                         "Source": data["source"],
                         "Loaded at": data["loaded_at"] or "-",
                         "Detail": data["detail"] or "-",
-                    })
-
-                df_status = pd.DataFrame(rows)
-                st.table(df_status)
-
-            except requests.exceptions.RequestException as e:
-                st.error(f"Could not retrieve model status: {e}")
+                    }
+                    for model_type, data in info.items()
+                ]
+                st.table(pd.DataFrame(rows))

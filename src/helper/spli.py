@@ -11,12 +11,11 @@ import logging
 from scipy.stats import norm
 
 from src.config import load_config
+from src.helper.constants import SPLI_CLASSES, MIN_FORECAST_DAYS
 
 # ---------------------------- VARIABLES ---------------------------
 
 CONFIG = load_config()
-
-MIN_FORECAST_DAYS = 14   # forecast-only months need MORE than this many days in forecast_spli
 
 # ---------------------------- LOGGING --------------------------------
 
@@ -31,18 +30,13 @@ logger = logging.getLogger(__name__)
 # We standardize each forecast month against the SAME calendar month in history,
 # so the value is comparable to the SPLI column used in app_stats.py.
 
-# Drought / wetness thresholds (same as app_stats.py: moderate -1, severe -1.5, extreme -2)
-def category_label(v: float)-> tuple[str, str]:
+# Drought / wetness thresholds
+def category_label(v: float) -> tuple[str, str]:
     """Return (category, color) for an SPLI value."""
-    if v <= -2.0:  return "Extreme drought",  "#67001f"
-    if v <= -1.5:  return "Severe drought",   "#b2182b"
-    if v <= -1.0:  return "Moderate drought", "#ef8a62"
-    if v <  1.0:   return "Normal",           "#4d4d4d"
-    if v <  1.5:   return "Moderately wet",   "#67a9cf"
-    if v <  2.0:   return "Very wet",         "#2166ac"
-    
-    return "Extremely wet", "#053061"
-
+    for bound, inclusive, label, color in SPLI_CLASSES:
+        if v <= bound if inclusive else v < bound:
+            return label, color
+    raise ValueError(f"Invalid SPLI value: {v}")
 
 def gringorten_zscore(pool_values: np.ndarray, value: float) -> float:
     """
