@@ -10,12 +10,6 @@ import logging
 from src.config import load_config
 CONFIG = load_config() # loading variables
 
-logging.basicConfig(level=logging.INFO, 
-                    format=CONFIG["system"]["logging_format"],
-                    handlers=[
-                        logging.StreamHandler(),
-                        logging.FileHandler("logs/nappecast.log", mode="a") # "a" = append to never erase logs wroten by previous scripts
-                    ])
 
 import requests 
 import os
