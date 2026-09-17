@@ -5,21 +5,15 @@ Run: streamlit run app_stats.py
 """
 
 # --------------------------- LIBRARY --------------------------------
-import ast
-from pathlib import Path
-from src.config import load_config
 import pandas as pd
 import streamlit as st
-import requests
-import seaborn as sns
-import matplotlib.pyplot as plt
 import numpy as np
 
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from scipy.stats import norm
 from statsmodels.tsa.seasonal import STL
+from src.helper.constants import DRIVER_LABELS, TARGET_COL, SPLI_COL, DROUGHT_THRESHOLDS, DROUGHT_EVENT_THRESHOLD, DATE_COL
 
 
 # Water / hydro palette
@@ -43,23 +37,10 @@ PLOTLY_LAYOUT = dict(
 
 # --------------------------------------------------------------------------- #
 # Column: raw signal + the standardized index columns
-# --------------------------------------------------------------------------- #
-GWL = "niveau_nappe_eau"                 # raw groundwater level (for STL)
- 
+# --------------------------------------------------------------------------- # 
 # Standardized index columns (scale = 1), as produced in feature engineering.
-SPLI = "SPLI"                            # response (groundwater), the target-derived index
-DRIVER_LABELS = {                        # driver index columns -> human labels
-    "SPI":  "Precipitation (SPI)",
-    "SETI": "Evapotranspiration (SETI)",
-    "SSTI": "Soil temperature (SSTI)",
-    "SSRI": "Shortwave radiation (SSRI)",
-    "SWSI": "Wind speed (SWSI)",
-    "SCCI": "Cloud cover (SCCI)",
-    "SPMI": "Sea-level pressure (SPMI)",
-    "SPEI": "Water balance (SPEI)",
-    "SSMI": "Soil moisture (SSMI)",
-}
-INDEX_COLS = [SPLI] + list(DRIVER_LABELS)
+
+INDEX_COLS = [SPLI_COL] + list(DRIVER_LABELS)
 
 # --------------------------------------------------------------------------- #
 # Computations
@@ -71,7 +52,7 @@ def monthly(series: pd.Series) -> pd.Series:
     return series.resample("MS").mean().dropna()
  
  
-def characterize_events(series, threshold=-1.5, direction="below", min_gap=1, pooling=True):
+def characterize_events(series, threshold=DROUGHT_EVENT_THRESHOLD, direction="below", min_gap=1, pooling=True):
     """Run-theory drought detection with inter-event pooling (extreme_events cell 12).
     Runs on the SPLI series that is already in the dataset — this is event
     *analysis*, not index computation."""
@@ -106,7 +87,7 @@ def characterize_events(series, threshold=-1.5, direction="below", min_gap=1, po
 @st.cache_data(show_spinner=False)
 def spli_droughts(spli_monthly: pd.Series):
     """Return (events_df, longest_event, most_intense_event) for the SPLI series."""
-    ev = characterize_events(spli_monthly, threshold=-1.5)
+    ev = characterize_events(spli_monthly, threshold=DROUGHT_EVENT_THRESHOLD, direction="below", min_gap=1, pooling=True)
     if ev.empty:
         return ev, None, None
     longest = ev.loc[ev["duration_m"].idxmax()]
@@ -158,7 +139,7 @@ def fig_spli_monthly(spli_monthly: pd.Series) -> go.Figure:
         hovertemplate="%{x|%b %Y}<br>SPLI = %{y:.2f}<extra></extra>",
         name="SPLI",
     ))
-    for y, label in [(-1, "moderate"), (-1.5, "severe"), (-2, "extreme")]:
+    for label, y in DROUGHT_THRESHOLDS.items():
         fig.add_hline(y=y, line=dict(color="grey", width=0.7, dash="dash"))
         fig.add_annotation(x=spli_monthly.index[-1], y=y, text=f" {label}",
                            showarrow=False, xanchor="left", font=dict(color="grey", size=10))
@@ -183,7 +164,7 @@ def fig_spli_events(gwl: pd.Series, spli_monthly: pd.Series, longest, most_inten
         marker=dict(color=spli_monthly.values, colorscale=RDBU, cmin=-3, cmax=3),
         hovertemplate="%{x|%b %Y}<br>SPLI = %{y:.2f}<extra></extra>",
         showlegend=False), row=2, col=1)
-    for y in (-1, -1.5, -2):
+    for y in DROUGHT_THRESHOLDS.values():
         fig.add_hline(y=y, line=dict(color="grey", width=0.5, dash="dash"), row=2, col=1)
     fig.add_hline(y=0, line=dict(color="black", width=0.5), row=2, col=1)
     fig.update_yaxes(range=[-3, 3], row=2, col=1)
@@ -206,7 +187,7 @@ def fig_spli_events(gwl: pd.Series, spli_monthly: pd.Series, longest, most_inten
  
 def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
     """Cross-correlation of selected drivers vs SPLI (extreme_events — last graph)."""
-    resp = monthly_indices[SPLI]
+    resp = monthly_indices[SPLI_COL]
     fig = go.Figure()
     palette = [C_BLUE, C_TEAL, C_DEEP, "#e07b39", "#8e5ea2", "#3cb371",
                "#c0504d", "#4f81bd", "#9bbb59"]
@@ -239,26 +220,26 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
 
 def render_stats(df_processed: pd.DataFrame):
     df = df_processed.copy()
-    df['date_index'] = pd.to_datetime(df['date_index'])
-    df = df.set_index('date_index', drop=False)
+    df[DATE_COL] = pd.to_datetime(df[DATE_COL])
+    df = df.set_index(DATE_COL, drop=False)
 
     if df is None:
         st.warning("No dataset loaded. Set your config path or upload the merged CSV from the sidebar.")
         st.stop()
     
     # Required columns check
-    missing_core = [c for c in (GWL, SPLI) if c not in df.columns]
+    missing_core = [c for c in (TARGET_COL, SPLI_COL) if c not in df.columns]
     if missing_core:
         st.error(f"Missing required column(s): {missing_core}. "
-                f"The dataset must contain `{GWL}` (raw level) and `{SPLI}` (index).")
+                f"The dataset must contain `{TARGET_COL}` (raw level) and `{SPLI_COL}` (index).")
         st.stop()
     
     present_drivers = [c for c in DRIVER_LABELS if c in df.columns]
     missing_drivers = [c for c in DRIVER_LABELS if c not in df.columns]
     
     # Monthly views of every available index column
-    monthly_indices = {name: monthly(df[name]) for name in [SPLI] + present_drivers}
-    spli_m = monthly_indices[SPLI]
+    monthly_indices = {name: monthly(df[name]) for name in [SPLI_COL] + present_drivers}
+    spli_m = monthly_indices[SPLI_COL]
     _, longest, most_intense = spli_droughts(spli_m)
     
     # KPI row
@@ -268,7 +249,7 @@ def render_stats(df_processed: pd.DataFrame):
     k1.metric("Records (daily)", f"{len(df):,}")
     k2.metric("Period covered", span)
     k3.metric("Months of SPLI", f"{spli_m.notna().sum()}")
-    k4.metric("Drought events (SPLI<-1.5)", f"{len(ev_all)}")
+    k4.metric(f"Drought events (SPLI<{DROUGHT_EVENT_THRESHOLD})", f"{len(ev_all)}")
     
     if missing_drivers:
         st.caption(f"Note: driver indices not found in the dataset, skipped: {missing_drivers}")
@@ -288,7 +269,7 @@ def render_stats(df_processed: pd.DataFrame):
         unsafe_allow_html=True,
     )
     with st.spinner("Fitting STL decomposition…"):
-        st.plotly_chart(fig_stl(df[GWL]), use_container_width=True)
+        st.plotly_chart(fig_stl(df[TARGET_COL]), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -317,7 +298,7 @@ def render_stats(df_processed: pd.DataFrame):
         '<span style="color:#2471a3;font-weight:600">blue box</span> = most intense event.</p>',
         unsafe_allow_html=True,
     )
-    st.plotly_chart(fig_spli_events(df[GWL], spli_m, longest, most_intense), use_container_width=True)
+    st.plotly_chart(fig_spli_events(df[TARGET_COL], spli_m, longest, most_intense), use_container_width=True)
     if longest is not None:
         cA, cB = st.columns(2)
         cA.metric("Longest drought (months)", int(longest["duration_m"]),

@@ -6,15 +6,14 @@ Content of the Documentation / Predictions tab
 
 # --------------------------- LIBRARY --------------------------------
 import pandas as pd
-import numpy as np
 import streamlit as st
 import requests
-import plotly.graph_objects as go
 import logging
 import os
 
 
 from src.config import load_config
+from src.helper.constants import TARGET_COL, MIN_FORECAST_DAYS
 from requests.exceptions import RequestException
 from src.models.prophet import (build_train_frame,
                                 build_daily,
@@ -31,7 +30,6 @@ API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 # --- Forecast config (must stay identical to training to avoid
 #     train/serve skew: same columns, same lag logic) ---------
-TARGET = "niveau_nappe_eau"
 
 
 # Silence the noisy Prophet/cmdstanpy logs in the Streamlit console
@@ -112,13 +110,13 @@ def render_predictions(df_prediction: pd.DataFrame) -> None:
                 st.caption(
                     "Each forecast month standardised against the same calendar month "
                     "in prior years. Transition months are completed with observed + "
-                    "forecast days; forecast-only months need > 14 forecast days."
+                    f"forecast days; forecast-only months need > {MIN_FORECAST_DAYS} forecast days."
                 )
-                spli_rows = spli_forecast(daily[TARGET], forecast, last_train)
+                spli_rows = spli_forecast(daily[TARGET_COL], forecast, last_train)
                 if not spli_rows:
                     st.info(
                         "No forecast month qualifies for an SPLI "
-                        "(forecast-only months need more than 14 days)."
+                        f"(forecast-only months need more than {MIN_FORECAST_DAYS} days)."
                     )
                 else:
                     for r in spli_rows:
