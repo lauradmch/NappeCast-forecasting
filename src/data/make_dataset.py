@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO,
                         logging.FileHandler("logs/nappecast.log", mode="a") # "a" = append to never erase logs wroten by previous scripts
                     ])
 
-import requests
+import requests 
 import os
 import numpy as np
 import pandas as pd
@@ -27,7 +27,7 @@ import argparse
 from pathlib import Path
 
 from src.data.clean_dataset import piezometer_dataset_cleaning, weather_dataset_cleaning
-from src.helper.aws import load_historical_in_s3,save_raw_data_to_s3, save_interim_data_to_s3
+from src.helper.aws import load_historical_in_s3,save_raw_data_to_s3, save_interim_data_to_s3, upload_file_to_s3
 from src.helper.data import get_last_dates, build_start_dates
 
 # ---------------------------- LOGGING --------------------------------
@@ -386,13 +386,21 @@ def build_dataset(skip_historical: bool = False, save_csv: bool = False) -> tupl
 
 
 # ---------------------------- RUN ---------------------------
-def main()-> str: 
+def main():
     parser = argparse.ArgumentParser(description="Prépare le dataset propre")
     parser.add_argument("--skip-historical", action="store_true")
     parser.add_argument("--save-csv", action="store_true")
     args = parser.parse_args()
 
-    return build_dataset(skip_historical=args.skip_historical, save_csv=args.save_csv)
+    build_dataset(skip_historical=args.skip_historical, save_csv=args.save_csv)
+
+    # Upload APRES le pipeline
+    upload_file_to_s3(
+        local_file=Path("logs/nappecast.log"),
+        bucket=CONFIG["s3"]["bucket"],
+        key_prefix=CONFIG["s3"]["prefixes"]["logs"],
+        with_timestamp=True
+    )
 
 if __name__ == "__main__":
     main()

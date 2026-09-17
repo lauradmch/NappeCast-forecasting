@@ -44,6 +44,7 @@ s3:
     interim: "data/interim"
     raw: "data/raw"
     external: "data/external"
+    logs: "logs"
 
 model:
   Linear:
