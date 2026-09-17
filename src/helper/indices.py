@@ -27,7 +27,7 @@ def characterize_events(
     series: pd.Series,
     threshold: float = DROUGHT_EVENT_THRESHOLD,
     direction: str = "below",
-    min_gap: int = 1,
+    min_gap: int = 2,
     pooling: bool = True,
 ) -> pd.DataFrame:
     """Run-theory event detection with inter-event pooling.
