@@ -94,4 +94,4 @@ def xgboost_regressor(df, n_estimators=100, learning_rate=0.1, max_depth=4,
     return predictions_xgboost_reg, evaluation_metrics_xgboost_reg
 
 if __name__ == "__main__":
-    predictions, metrics = xgboost_regressor(df_daily)
+    predictions_xgboost_reg, evaluation_metrics_xgboost_reg = xgboost_regressor(df)
