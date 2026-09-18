@@ -42,6 +42,10 @@ from src.models.prophet import (build_train_frame,
                                 TARGET,
 )
 
+
+
+
+
 #--------------------- VARIABLES ---------------------
 CONFIG = load_config()
 S3_SESSION              = boto3.client("s3") 
@@ -51,15 +55,25 @@ PROCESSED_FILENAME      = Path(CONFIG["paths"]["data"]["processed"]) / f"{CONFIG
 TUNING_CSV_PATH         = Path(__file__).resolve().parents[2] / "src" / "models"
 
 EXPERIMENT_NAME = CONFIG["mlflow"]["experiment_name"]
-
-logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
-logger = logging.getLogger(__name__)
-
 PIPELINE_SECRET = os.environ["PIPELINE_SECRET"]
 
 _cache: dict = {}  # {"etag": str, "df": pd.DataFrame}
 
-#--------------------- ENDPOINTS & HELPERS ---------------------
+# ---------------------------- LOGGING --------------------------------
+LOG_DIR         = CONFIG["api"]["logs"]["path"]
+LOG_NAME        = CONFIG["api"]["logs"]["filename"]
+
+os.makedirs(LOG_DIR, exist_ok=True)
+logging.basicConfig(level=logging.INFO, 
+                    format=CONFIG["system"]["logging_format"],
+                    handlers=[
+                        logging.StreamHandler(),
+                        logging.FileHandler(os.path.join(LOG_DIR, LOG_NAME), mode="a")
+                    ])
+logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
+logger = logging.getLogger(__name__)
+logger.info("Logger initialisé OK")
+#--------------------- ENDPOINTS & HELPERS ---------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     for H in (14, 30):

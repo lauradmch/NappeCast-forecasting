@@ -20,10 +20,7 @@ from src.helper.aws import read_csv_in_s3
 from src.helper.data import get_last_dates, build_start_dates
 
 # ---------------------------- LOGGING --------------------------------
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
-
 # ---------------------------- VARIABLES ---------------------------
 
 CONFIG = load_config()

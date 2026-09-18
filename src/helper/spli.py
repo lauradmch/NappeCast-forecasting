@@ -18,11 +18,7 @@ from src.helper.constants import SPLI_CLASSES, MIN_FORECAST_DAYS
 CONFIG = load_config()
 
 # ---------------------------- LOGGING --------------------------------
-
-logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
 logger = logging.getLogger(__name__)
-
-
 # ---------------------------- SPLI ON THE FORECAST ---------------------------
 # SPLI recipe (identical to standardize_index() in extreme_events_analysis.ipynb):
 #   monthly mean of the groundwater level -> group by calendar month ->

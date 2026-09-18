@@ -90,6 +90,26 @@ flowchart LR
 
 ---
 
+3 EC2 dans le même VPC (vpc-0400adbbc2bdd55be), eu-west-3 :
+
+Service	| IP privée	| Port	| Domaine public (via Caddy)
+|---|---|---|---|
+Airflow (webserver)	| 172.31.8.14	| 8080	| airflow.mapflowing.com
+MLflow	| 172.31.8.230	| 5000	| mlflow.mapflowing.com
+API / Streamlit / Caddy	| 172.31.41.22	| API:8000, Streamlit:8501	| nappecast.mapflowing.com
+
+Structure Airflow (sur l'EC2 172.31.8.14) :
+~/app/docker/airflow/
+├── docker-compose.yml
+├── Dockerfile
+├── dags/  data/  logs/  plugins/
+
+Synchro S3 automatique (container airflow-s3-sync, toutes les 60s) :
+
+dags/ : pull S3 → EC2 avec --delete (S3 fait autorité — dépose/supprime tes DAGs dans s3://nappecast/airflow/dags/)
+data/ et logs/ : push EC2 → S3, sans --delete (sauvegarde)
+Policy IAM sur airflow-ec2-role : s3:GetObject/PutObject/DeleteObject/ListBucket sur arn:aws:s3:::nappecast/airflow/*
+
 ## Repository structure
 
 ```

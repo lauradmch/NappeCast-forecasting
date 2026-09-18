@@ -15,10 +15,7 @@ from src.config import load_config
 from botocore.exceptions import ClientError
 
 # ---------------------------- LOGGING --------------------------------
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
-
 # ---------------------------- VARIABLES ---------------------------
 
 CONFIG = load_config()

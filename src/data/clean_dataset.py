@@ -11,12 +11,9 @@ from src.config import load_config
 from src.helper.aws import save_interim_data_to_s3
 
 # ---------------------------- LOGGING --------------------------------
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 # ---------------------------- VARIABLES ---------------------------
-
 CONFIG = load_config()
 
 # ---------------------------- GET DATA ---------------------------

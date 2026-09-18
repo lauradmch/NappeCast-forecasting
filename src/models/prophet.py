@@ -21,8 +21,6 @@ TARGET              = CONFIG["model"]["prophet"]["data"]["target"]
 HISTORY_DAYS        = 220 # Window of observed history shown on the chart (days)
 
 # ---------------------------- LOGGING --------------------------------
-
-logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
 logger = logging.getLogger(__name__)
 
 # ----------------------------  ---------------------------

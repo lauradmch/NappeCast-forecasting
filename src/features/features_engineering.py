@@ -16,10 +16,8 @@ from scipy.stats import norm
 
 CONFIG = load_config()
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+# ---------------------------- LOGGING --------------------------------
 logger = logging.getLogger(__name__)
-
-
 
 def standardize_index(series: pd.Series, 
                       scale=1, 

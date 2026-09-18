@@ -44,7 +44,8 @@ from src.models.production import (
 )
 
 CONFIG = load_config()
-logging.basicConfig(level=logging.INFO, format=CONFIG["system"]["logging_format"])
+
+# ---------------------------- LOGGING --------------------------------
 logger = logging.getLogger(__name__)
 logging.getLogger("prophet").setLevel(logging.WARNING)
 logging.getLogger("cmdstanpy").setLevel(logging.ERROR)

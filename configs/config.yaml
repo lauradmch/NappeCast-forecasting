@@ -12,6 +12,9 @@ api:
     start_date: "2017-01-01"
   forecast_horizon: 30
   model_source: "mlflow"
+  logs: 
+    filename: "nappecast.log"
+    path: "logs"
     
 paths:
   data:

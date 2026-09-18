@@ -25,16 +25,7 @@ from src.helper.aws import load_historical_in_s3,save_raw_data_to_s3, save_inter
 from src.helper.data import get_last_dates, build_start_dates
 
 # ---------------------------- LOGGING --------------------------------
-
-logging.basicConfig(level=logging.INFO, 
-                    format=CONFIG["system"]["logging_format"],
-                    handlers=[
-                        logging.StreamHandler(),
-                        logging.FileHandler("logs/nappecast.log", mode="a") # "a" = append to never erase logs wroten by previous scripts
-                    ])
-
 logger = logging.getLogger(__name__)
-logger.info("Logger initialisé OK")
 
 # ---------------------------- API EXTERNE ---------------------------
 
