@@ -108,10 +108,11 @@ def build_future_frame(daily: pd.DataFrame, H: int) -> tuple[pd.DataFrame, list[
 
 # ---------------------------- PLOT ---------------------------
 
-def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> go.Figure:
+def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int,
+                  interval_width: float = 0.80) -> go.Figure:
     """
     Plotly version of fig2 (prophet_predict.py): recent observed history,
-    +H day forecast and 80% uncertainty band.
+    +H day forecast and uncertainty band (interval_width = model.interval_width).
     """
     last_train = df_prophet["ds"].max()
     fut = forecast[forecast["ds"] > last_train]
@@ -137,7 +138,7 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int) -> g
         x=fut["ds"], y=fut["yhat_lower"],
         mode="lines", line=dict(width=0),
         fill="tonexty", fillcolor="rgba(214,39,40,0.18)",
-        name="80% interval",
+        name=f"{interval_width:.0%} interval",
     ))
 
     # --- Forecast (+H days)

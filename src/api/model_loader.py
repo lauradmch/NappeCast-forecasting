@@ -17,7 +17,7 @@ import mlflow.prophet
 
 from pathlib import Path
 from typing import Any, Optional
-from src.config import load_config
+from src.config import load_config, mlflow_tracking_uri
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +48,7 @@ def _load_from_local(model: Optional[str] = None, horizon: Optional[int] = None)
 
 
 def _load_from_mlflow(model: Optional[str] = None, horizon: Optional[int] = None) -> Any:
-    tracking_uri = CONFIG["mlflow"]["internal_tracking_uri"]
-    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_tracking_uri(mlflow_tracking_uri())
 
     model_type = model or CONFIG["mlflow"]["active_model"]
     h_key = _horizon_key(horizon)

@@ -3,9 +3,15 @@ nappecast.mapflowing.com {
 }
 
 airflow.mapflowing.com {
+    @denied not remote_ip 86.213.23.196 100.99.237.56 89.2.16.136 2a01:cb08:10ac:e500:cccd:e602:717c:a169/64 2a01:cb19:c07:f300:a5f3:d3ec:5419:f537/64
+    respond @denied "Access denied" 403
+
     reverse_proxy 172.31.8.14:8080
 }
 
 mlflow.mapflowing.com {
-    reverse_proxy 172.31.32.79:5000
+    @denied not remote_ip 86.213.23.196 100.99.237.56 89.2.16.136 2a01:cb08:10ac:e500:cccd:e602:717c:a169/64 2a01:cb19:c07:f300:a5f3:d3ec:5419:f537/64
+    respond @denied "Access denied" 403
+
+    reverse_proxy 172.31.8.230:5000
 }

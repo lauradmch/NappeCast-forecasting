@@ -7,6 +7,7 @@ Chargement centralisé de la configuration du projet.
   os.environ. 
 """
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -28,3 +29,14 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
     """Charge et met en cache le fichier de configuration YAML (paramètres non-secrets)."""
     with open(path) as f:
         return yaml.safe_load(f)
+
+
+def mlflow_tracking_uri() -> str:
+    """
+    Single source for the MLflow server address.
+    The address depends on WHERE the code runs (laptop -> public IP,
+    EC2 containers -> private VPC IP), so it's an environment setting:
+    MLFLOW_TRACKING_URI in .env wins; fallback = public URI from config.yaml.
+    """
+    uri = os.getenv("MLFLOW_TRACKING_URI") or load_config()["mlflow"]["default_tracking_uri"]
+    return uri.rstrip("/")
