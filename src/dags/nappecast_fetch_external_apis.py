@@ -48,9 +48,10 @@ OPEN_METEO_BASE_URL = Variable.get(
     "open_meteo_base_url", default_var="https://archive-api.open-meteo.com/v1"
 )
 
-REQUEST_TIMEOUT = 10            # Timeout HTTP (en secondes) appliqué à tous les appels de ce DAG.
-HEALTH_CHECK_LATITUDE = 48.85   # Pour le health check
-HEALTH_CHECK_LONGITUDE = 2.35
+REQUEST_TIMEOUT         = 120            # Timeout HTTP (en secondes) appliqué à tous les appels de ce DAG.
+HEALTH_CHECK_LATITUDE   = 48.85   # Pour le health check
+HEALTH_CHECK_LONGITUDE  = 2.35
+PIPELINE_SECRET         = Variable.get("pipeline_secret")
 
 # ---------------------------------------------------------------------------
 # default_args : paramètres hérités par TOUTES les tasks du DAG
@@ -88,7 +89,7 @@ def nappecast_fetch_external_apis():
  
         if response.status_code not in (200, 206):
             raise AirflowException(
-                f"Hubeau KO (status {response.status_code}) sur {endpoint}"
+                f"Hubeau KO (status {response.status_code}) sur {endpoint}:{response.text}"
             )
 
         payload = response.json()
@@ -119,7 +120,7 @@ def nappecast_fetch_external_apis():
  
         if response.status_code != 200:
             raise AirflowException(
-                f"Open-Meteo KO (status {response.status_code}) : {response.text}"
+                f"Open-Meteo KO (status {response.status_code}) sur {endpoint}:{response.text}"
             )
  
         payload = response.json()
@@ -135,11 +136,17 @@ def nappecast_fetch_external_apis():
         """
         Déclenche la récupération des données via la'API NappeCsat
         """
-        endpoint = f"{API_BASE_URL}/pipeline/collect" 
+        endpoint = f"{API_BASE_URL}/pipeline/collect"
+        headers = {"X-Pipeline-Secret": PIPELINE_SECRET}
+
         logger.info("Appel de %s", endpoint)
 
-        response = requests.post(endpoint, timeout=REQUEST_TIMEOUT)
-        response.raise_for_status() 
+        response = requests.post(endpoint, timeout=REQUEST_TIMEOUT, headers=headers)
+
+        if response.status_code >= 400:
+            logger.error("Réponse API fetch_data (%s) : %s", response.status_code, response.text)
+
+        response.raise_for_status()
 
         result = response.json()
         logger.info("Récupération Hibeau OK : %s", result)
