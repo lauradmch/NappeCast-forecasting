@@ -7,6 +7,8 @@ on:
     branches: [main, develop]   # à chaque push sur main ou develop
   pull_request:
     branches: [main]            # à chaque PR ciblant main
+  workflow_dispatch:      # Déclenché manuellement depuis l'onglet Actions
+
 
 # Un workflow contient un ou plusieurs jobs
 jobs:
