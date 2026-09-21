@@ -97,5 +97,8 @@ def test_get_hubeau_raises_after_max_retries(mock_get, mock_sleep):
 def test_merge_data_history_dedup_keep_last(df_hist):
     df_new = pd.DataFrame({"code_bss": ["A"], "date": ["2023-01-02"], "value": [99.0]})
     result = merge_data_history(df_hist, df_new, "code_bss", "date")
+    
     assert len(result) == 2
-    assert result.loc[result["date"] == pd.Timestamp("2023-01-02"),
+    # La ligne du 2023-01-02 doit avoir la valeur de df_new (99.0), pas df_hist (2.0)
+    mask = result["date"] == "2023-01-02"
+    assert result.loc[mask, "value"].iloc[0] == 99.0
