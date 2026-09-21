@@ -1,0 +1,47 @@
+# Nom du workflow — affiché dans l'onglet "Actions" de GitHub
+name: ci-app_api
+
+# Déclencheurs : quand ce workflow s'exécute
+on:
+  push:
+    branches: [main, develop]   # à chaque push sur main ou develop
+  pull_request:
+    branches: [main]            # à chaque PR ciblant main
+
+# Un workflow contient un ou plusieurs jobs
+jobs:
+
+  # Nom du job — arbitraire, affiché dans l'UI GitHub
+  test:
+
+    # Machine virtuelle fournie par GitHub sur laquelle le job tourne
+    # ubuntu-latest = dernière Ubuntu LTS disponible (gratuit pour les repos publics)
+    runs-on: ubuntu-latest
+
+    # Séquence d'étapes exécutées dans l'ordre sur cette machine
+    steps:
+
+      # Étape 1 — cloner le repo sur la machine virtuelle
+      # actions/checkout@v4 est une action officielle GitHub
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Étape 2 — installer Python 3.13 sur la machine virtuelle
+      # `with` passe des paramètres à l'action
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Étape 3 — installer les dépendances du projet
+      # `run` exécute une commande shell directement sur la machine virtuelle
+      # équivalent à taper cette commande dans un terminal Ubuntu
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Étape 4 — lancer les tests
+      # -v       : verbose, affiche le nom de chaque test
+      # --tb=short : en cas d'échec, affiche un traceback condensé (pas le roman complet)
+      # Le job échoue si pytest retourne un code de sortie non-zéro (≥ 1 test en FAILED)
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
