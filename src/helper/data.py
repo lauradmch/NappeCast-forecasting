@@ -10,6 +10,7 @@ import os
 import boto3
 import io
 
+from typing import Dict, Optional, Literal
 from pathlib import Path
 from src.config import load_config
 from botocore.exceptions import ClientError
@@ -45,11 +46,29 @@ def build_start_dates(df_station: pd.DataFrame, last_dates: dict, default_start:
  
     return df_station["code_bss"].map(start_for)
 
+def get_historic_rds(horizon: Literal[14, 30], end_date: str) -> pd.DataFrame:
+    """
+    Intérroge la base de données RDS
+        -> connexion a postgre RDS AWS
+        -> select * from spli_historic where horizon = horizon and date_train= end_date
+    """
 
 
 
+    df_return = df_historic.copy()
+    return df_return
 
 
+def get_forecast_rds(horizon: Literal[14, 30], end_date: str) -> pd.DataFrame:
+    """
+    Intérroge la base de données RDS
+        -> connexion a postgre RDS AWS
+        -> select * from spli_forecast where horizon = horizon and date_train= end_date
+    """
+
+    df_return = df_forecast.copy()
+
+    return df_forecast
  
 
  

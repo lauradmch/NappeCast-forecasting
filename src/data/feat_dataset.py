@@ -14,10 +14,8 @@ import boto3
 
 from pathlib import Path
 from src.config import load_config
-from src.data.clean_dataset import piezometer_dataset_cleaning, weather_dataset_cleaning
 from src.features.features_engineering import feature_engineering
 from src.helper.aws import read_csv_in_s3
-from src.helper.data import get_last_dates, build_start_dates
 
 # ---------------------------- LOGGING --------------------------------
 logger = logging.getLogger(__name__)

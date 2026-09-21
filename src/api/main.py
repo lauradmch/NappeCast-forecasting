@@ -24,16 +24,25 @@ from mlflow import MlflowClient
 from typing import Dict, Optional, Literal
 from pathlib import Path
 from src.config import load_config, mlflow_tracking_uri
+
 from src.data.make_dataset import build_dataset
 from src.data.feat_dataset import feat_dataset
-from src.helper.aws import upload_file_to_s3, read_csv_in_s3
+from src.helper.aws import read_csv_in_s3
+from src.helper.data import get_historic_rds, get_forecast_rds
 
 from src.api.model_loader import get_model_info, load_model, _MLFLOW_LOADERS
 from src.api.schemas import (
     HealthResponse,
     ModelInfoResponse,
     PredictResponse,
+    PredictRecord,
     TrainingResponse,
+    InterimRecord, 
+    InterimResponse,
+    ProcessedResponse, 
+    ProcessedRecord,
+    HistoricResponse,
+    ForecastResponse,
 )
 from src.models.production import promote
 from src.models.prophet import (build_train_frame,
@@ -41,10 +50,6 @@ from src.models.prophet import (build_train_frame,
                                 build_daily,
                                 TARGET,
 )
-
-
-
-
 
 #--------------------- VARIABLES ---------------------
 CONFIG = load_config()
@@ -95,6 +100,14 @@ def verify_secret(x_pipeline_secret: str = Header(...)):
     if x_pipeline_secret != PIPELINE_SECRET:
         raise HTTPException(status_code=403, detail="Secret invalide")
 
+def load_cached_dataset() -> pd.DataFrame:
+    head = S3_SESSION.head_object(Bucket=BUCKET_NAME, Key=PROCESSED_FILENAME)
+    etag = head["ETag"]
+    if _cache.get("etag") != etag:
+        logger.info("Dataset cache miss (etag=%s) — reloading from S3", etag)
+        _cache["df"]   = read_csv_in_s3(S3_SESSION, BUCKET_NAME, PROCESSED_FILENAME)
+        _cache["etag"] = etag
+    return _cache["df"]
 
 @app.get("/health", response_model=HealthResponse, tags=["monitoring"])
 def health():
@@ -103,28 +116,13 @@ def health():
     """
     return {"status": "ok"}
 
-
-@app.get("/data/preview", tags=["monitoring"])
-def get_data(n: int = 50):
-    """Read-only data preview of the most recent 'n' rows (default 50)"""
-    df = load_cached_dataset()
-    out = df.tail(n).copy()
-    out["date_index"] = pd.to_datetime(out["date_index"]).dt.strftime("%Y-%m-%d")
-    return out.to_dict(orient="records")
-
-@app.post("/pipeline/collect")
-async def collect_pipeline(_: None = Depends(verify_secret)):
-    print("Fetching Data")
-    df_station, df_interim = build_dataset(skip_historical=True, save_csv=True)
-    df_processed = feat_dataset(save_csv=True)
-    return {"status": "ok", "stations": len(df_station), "processed_rows": len(df_processed)}
-
-
+# -------------------------------------------------
+# models
+# -------------------------------------------------
 @app.get("/model/info", response_model=ModelInfoResponse, tags=["monitoring"])
 def model_info(model: Optional[str] = None, source: Optional[str] = None, horizon: Optional[int] = None):
     """État du modèle en cache pour le type/source donnés (ou le modèle actif par défaut si omis)."""
     return get_model_info(model=model, source=source, horizon=horizon)
-
 
 @app.post("/model/reload", response_model=ModelInfoResponse, tags=["monitoring"])
 def model_reload(model: Optional[str] = None, source: Optional[str] = None, horizon: Optional[int] = None, _: None = Depends(verify_secret)):
@@ -136,28 +134,76 @@ def model_reload(model: Optional[str] = None, source: Optional[str] = None, hori
     return get_model_info(model=model, source=source, horizon=horizon)
 
 
-@app.get("/model/info/all", response_model=Dict[str, ModelInfoResponse], tags=["monitoring"])
-def model_info_all(source: Optional[str] = None, horizon: Optional[int] = None):
-    """
-    État des modèles en une seule requête.
-    """
-    return {
-        f"{model_type}_h{H}": get_model_info(model=model_type, source=source, horizon=H)
-        for H in (14, 30)
-        for model_type in _MLFLOW_LOADERS.keys()
-}
+# -------------------------------------------------
+# Pipeline
+# -------------------------------------------------
+@app.post("/pipeline/collect", response_model=InterimResponse, tags=["pipeline"])
+async def collect_pipeline(_: None = Depends(verify_secret)):
+    """lance la collect et le nettoyage""" 
+    _, df_interim = build_dataset(skip_historical=True, save_csv=True)
+    df_interim = df_interim.where(pd.notnull(df_interim), None)
+    records = [InterimRecord(**row) for row in df_interim.to_dict(orient="records")]
+    return InterimResponse(status="ok", n_rows=len(records), data=records)
+    
+@app.post("/pipeline/feat", response_model=ProcessedResponse, tags=["pipeline"])
+async def feat_pipeline(_: None = Depends(verify_secret)):
+    """lance le feature engineering sur les données interim"""
+    df_processed = feat_dataset(save_csv=True)
+    df_processed = df_processed.where(pd.notnull(df_processed), None)
+    records = [ProcessedRecord(**row) for row in df_processed.to_dict(orient="records")]
+    return ProcessedResponse(status="ok", n_rows=len(records), data=records)
+    
+@app.post("/predict", response_model=PredictResponse, tags=["pipeline"])
+def predict(H: Literal[14, 30]):
+    """Effectue le predict avec les dernières données processed"""
+
+    # build future dataframe
+    df = load_cached_dataset()
+    daily = build_daily(df)
+    future, _ = build_future_frame(daily, H)
+
+    # load model in prod
+    try:
+        model = load_model(model='Prophet', horizon=H)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Model unavailable: {e}")
+
+    # forecast
+    try:
+        forecast = model.predict(future)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Prediction failed: {e}")
+
+    last_train = daily[daily[TARGET].notna()].index.max().strftime("%Y-%m-%d")
+    forecast["ds"] = forecast["ds"].dt.strftime("%Y-%m-%d")
+
+    points = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]] 
+    records = [PredictRecord(**row) for row in points.to_dict(orient="records")]
+    return PredictResponse(status="ok", last_train=last_train, n_rows=len(records), data=records)
+
+# -------------------------------------------------
+# Get data from AWS RDS
+# -------------------------------------------------     
+  
+@app.post("/data/historic", response_model=HistoricResponse, tags=["data"])
+def get_historic(H: Literal[14, 30], last_train: str):
+    """Récupère les datas de la table historic depuis le serveur de base de données AWS RDS"""
+    df_historic = get_historic_rds(H, last_train)
+    records = [ProcessedRecord(**row) for row in df_historic.to_dict(orient="records")]
+    return HistoricResponse(status="ok", n_rows=len(records), horizon=H, last_train=last_train, data=records)
+
+@app.post("/data/forecast", response_model=ForecastResponse, tags=["data"])
+def get_forecast(H: Literal[14, 30], last_train):
+    """Récupère les datas de la table forecast depuis le serveur de base de données AWS RDS"""
+    df_forecast= get_forecast_rds(H, last_train)
+    records = [PredictRecord(**row) for row in df_forecast.to_dict(orient="records")]
+    return ForecastResponse(status="ok", n_rows=len(records), horizon=H, last_train=last_train, data=records)
 
 
-def load_cached_dataset() -> pd.DataFrame:
-    head = S3_SESSION.head_object(Bucket=BUCKET_NAME, Key=PROCESSED_FILENAME)
-    etag = head["ETag"]
-    if _cache.get("etag") != etag:
-        logger.info("Dataset cache miss (etag=%s) — reloading from S3", etag)
-        _cache["df"]   = read_csv_in_s3(S3_SESSION, BUCKET_NAME, PROCESSED_FILENAME)
-        _cache["etag"] = etag
-    return _cache["df"]
 
 
+
+'TODO : a revoir'
 @app.post("/train", response_model=TrainingResponse, tags=["training"])
 def training(H: Literal[14, 30], _: None = Depends(verify_secret)):
     mlflow.set_tracking_uri(mlflow_tracking_uri())
@@ -240,28 +286,6 @@ def training(H: Literal[14, 30], _: None = Depends(verify_secret)):
     }
 
 
-@app.post("/predict", response_model=PredictResponse, tags=["inference"])
-def predict(H: Literal[14, 30]):
-    # build future dataframe
-    df = load_cached_dataset()
-    daily = build_daily(df)
-    future, _ = build_future_frame(daily, H)
 
-    # load model in prod
-    try:
-        model = load_model(model='Prophet', horizon=H)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Model unavailable: {e}")
 
-    # forecast
-    try:
-        forecast = model.predict(future)
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Prediction failed: {e}")
 
-    last_train = daily[daily[TARGET].notna()].index.max().strftime("%Y-%m-%d")
-    forecast["ds"] = forecast["ds"].dt.strftime("%Y-%m-%d")
-    # converts forcast df to a list of dicts, one dict (day) per row 
-    points = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].to_dict(orient="records")
-
-    return {"last_train": last_train, "points": points}

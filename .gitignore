@@ -15,6 +15,8 @@ env/
 .env
 *.env
 !.env.example
+.env.runtime
+*secret*
 
 # --- Jupyter ---
 .ipynb_checkpoints/
