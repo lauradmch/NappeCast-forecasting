@@ -1,2 +1,10 @@
-ccxt
-pandas
+pandas==2.3.3
+plotly==6.9.0
+boto3==1.28.85
+requests==2.34.2
+mlflow==3.14.0
+prophet==1.3.0
+matplotlib
+numpy
+pyyaml
+python-dotenv
