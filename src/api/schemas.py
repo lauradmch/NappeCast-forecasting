@@ -105,21 +105,25 @@ class InterimResponse(BaseModel):
 class PredictResponse(BaseModel):
     status: str
     n_rows: int
-    horizon : str
+    horizon : int
     last_train: str
     data: List[PredictRecord]
 
 class ForecastResponse(BaseModel):
     status: str
     n_rows: int
-    horizon : str
+    horizon : int
     last_train: str
     data: List[PredictRecord]
+
+class TuningResponse(BaseModel):
+    horizon: int
+    status: str
 
 class HistoricResponse(BaseModel):
     status: str
     n_rows: int
-    horizon : str
+    horizon : int
     last_train: str
     data: List[ProcessedRecord]
     

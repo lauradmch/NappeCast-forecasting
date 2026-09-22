@@ -2,6 +2,7 @@
 API de test (acces databse, acces inférence ...)
 """
 
+import threading
 import uvicorn
 import pandas as pd 
 import boto3
@@ -43,10 +44,12 @@ from src.api.schemas import (
     ProcessedRecord,
     HistoricResponse,
     ForecastResponse,
+    TuningResponse,
     LoadResponse
 )
 from src.models.production import promote
 from src.models.prophet_predict import predict
+from src.models.prophet_tune import run_tuning
 from src.models.prophet import (build_train_frame,
                                 build_daily,
                                 TARGET,
@@ -64,6 +67,7 @@ EXPERIMENT_NAME = CONFIG["mlflow"]["experiment_name"]
 PIPELINE_SECRET = os.environ["PIPELINE_SECRET"]
 
 _cache: dict = {}  # {"etag": str, "df": pd.DataFrame}
+_tuning_lock = threading.Lock()  # pour éviter que deux tuning se chevauchent (et écrasent le CSV)
 
 # ---------------------------- LOGGING --------------------------------
 LOG_DIR         = CONFIG["api"]["logs"]["path"]
@@ -138,7 +142,7 @@ def model_reload(model: Optional[str] = None, source: Optional[str] = None, hori
 # Pipeline
 # -------------------------------------------------
 @app.post("/pipeline/collect", response_model=InterimResponse, tags=["pipeline"])
-async def collect(_: None = Depends(verify_secret)):
+def collect(_: None = Depends(verify_secret)):
     """lance la collect et le nettoyage""" 
     _, df_interim = build_dataset(skip_historical=True, save_csv=True)
     df_interim = df_interim.where(pd.notnull(df_interim), None)
@@ -146,7 +150,7 @@ async def collect(_: None = Depends(verify_secret)):
     return InterimResponse(status="ok", n_rows=len(records), data=records)
     
 @app.post("/pipeline/transform", response_model=ProcessedResponse, tags=["pipeline"])
-async def transform(_: None = Depends(verify_secret)):
+def transform(_: None = Depends(verify_secret)):
     """lance le feature engineering sur les données interim"""
     df_processed = feat_dataset(save_csv=True)
     df_processed = df_processed.where(pd.notnull(df_processed), None)
@@ -154,11 +158,26 @@ async def transform(_: None = Depends(verify_secret)):
     return ProcessedResponse(status="ok", n_rows=len(records), data=records)
 
 @app.post("/pipeline/forecast", response_model=PredictResponse, tags=["pipeline"])
-async def forecast(H: Literal[14, 30], _: None = Depends(verify_secret)):
+def forecast(H: Literal[14, 30], _: None = Depends(verify_secret)):
     """Effectue le predict avec les dernières données processed"""
     last_train, forecast = predict(H, save_csv=True)
     records = [PredictRecord(**row) for row in forecast.to_dict(orient="records")]
-    return PredictResponse(status="ok", last_train=last_train, n_rows=len(records), data=records)
+    return PredictResponse(status="ok", horizon=H, last_train=last_train,
+                           n_rows=len(records), data=records)
+
+@app.post("/pipeline/tuning", response_model=TuningResponse, tags=["training"])
+def run_model_tuning(H: Literal[14, 30], source: Literal["s3", "local"] = "s3", _: None = Depends(verify_secret)):
+    """Exécute le tuning du modèle pour un horizon donné"""
+    if not _tuning_lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="Tuning déjà en cours")
+    try:
+        run_tuning(H, source)
+        return TuningResponse(status="ok", horizon=H)
+    except Exception as e:
+        logger.exception("Tuning failed for H=%d: %s", H, e)
+        raise HTTPException(status_code=500, detail=f"Tuning failed for H={H}:{e}")
+    finally:
+        _tuning_lock.release()
 
 @app.post("/pipeline/load", response_model=LoadResponse, tags=["pipeline"])
 async def load(_: None = Depends(verify_secret)):
@@ -194,8 +213,6 @@ def get_forecast(H: Literal[14, 30], last_train):
     df_forecast= get_forecast_rds(H, last_train)
     records = [PredictRecord(**row) for row in df_forecast.to_dict(orient="records")]
     return ForecastResponse(status="ok", n_rows=len(records), horizon=H, last_train=last_train, data=records)
-
-
 
 
 

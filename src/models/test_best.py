@@ -139,7 +139,7 @@ def test_horizon(H: int, daily: pd.DataFrame, client: MlflowClient, c: Checker, 
             c.check(gap < 1e-3, "API serves the same model as @production",
                     f"max |yhat_api - yhat_local| = {gap:.4g} on {len(merged)} days")
         except Exception as e:
-            c.check(False, "API /predict", str(e))
+            c.check(False, "API /forecast", str(e))
 
 
 def main():

@@ -8,19 +8,28 @@ Ré-entraîner mensuellement les modèles Prophet de prévision du niveau de nap
 et ne mettre en production le nouveau modèle que s'il bat celui en place.
 
 Déroulé :
-    1a. tune[H=14]   -> grid search + refit + champion/challenger pour l'horizon 14j
+    1a. tune[H=14]   -> déclenche le tuning pour l'horizon 14j
     1b. tune[H=30]   -> idem pour l'horizon 30j
-        (1a et 1b tournent en PARALLÈLE via dynamic task mapping)
+        (1a et 1b sont créées par dynamic task mapping ; le pool
+         "training_pool" à 1 slot les sérialise de fait)
     2.  smoke_test   -> vérifie que l'API sert bien une prédiction pour chaque
                         horizon après un éventuel changement de modèle.
 
-Chaque tâche `tune` appelle src.models.prophet_tune.run_tuning(H), qui :
-    - lit le dataset processed depuis S3 (même source que l'API : pas de skew)
+Chaque tâche `tune` appelle POST /pipeline/tuning sur l'API NappeCast : le DAG
+n'importe pas le code du projet, il ne fait que le déclencher. L'appel est
+SYNCHRONE et sans timeout HTTP. Le garde-fou est `execution_timeout` (2h),
+pas le client. L'API refuse un second tuning simultané avec un 409.
+
+Côté API, run_tuning(H) :
+    - lit le dataset processed depuis S3 (même source que l'API)
     - explore la grille d'hyperparamètres par validation croisée temporelle
     - enregistre une nouvelle version dans le MLflow Model Registry
     - re-score le champion sur les MÊMES données et promeut le challenger
       seulement s'il gagne au moins 2 % (voir src/models/production.py)
     - notifie l'API (/model/reload) si la promotion a eu lieu
+
+Les résultats (métriques, versions, décision de promotion) ne transitent pas
+par le DAG : ils sont dans MLflow. La réponse HTTP ne porte qu'un accusé.
 """
 
 from __future__ import annotations
@@ -41,6 +50,9 @@ API_BASE_URL = Variable.get(
 
 HORIZONS = [14, 30]          # jours — un modèle et une tâche par horizon
 REQUEST_TIMEOUT = 120        # s — le chargement d'un modèle MLflow peut être lent
+
+PIPELINE_SECRET = Variable.get("pipeline_secret")
+HEADERS = {"X-Pipeline-Secret": PIPELINE_SECRET}
 
 # ---------------------------------------------------------------------------
 # default_args : hérités par TOUTES les tasks du DAG
@@ -68,16 +80,19 @@ def nappecast_monthly_retrain():
         execution_timeout=timedelta(hours=2),   # garde-fou : libère le worker
         pool="training_pool",                   # 1 slot -> n'étouffe pas l'ingestion
     )
-    def tune(H: int) -> dict:
+    def tune(H: int) -> None:
         """
         Tuning complet pour un horizon. Retourne un résumé sérialisable (XCom).
-
-        L'import est LOCAL et non en tête de fichier : le scheduler reparse tous
-        les DAGs toutes les 30 s, ici l'import n'a lieu que dans le worker.
+        L'import est dans l'API main.py.
         """
-        from src.models.prophet_tune import run_tuning
+        response = requests.post(
+            f"{API_BASE_URL}/pipeline/tuning",
+            params={"H": H},
+            timeout=None,
+            headers=HEADERS,
+        )
+        response.raise_for_status()
 
-        return run_tuning(H, source="s3")
 
     @task
     def smoke_test(results: list[dict]) -> None:
@@ -87,10 +102,11 @@ def nappecast_monthly_retrain():
         Un échec ici fait échouer le DAG et rend le problème visible
         (le rollback se fait avec : python -m src.models.production --rollback).
         """
-        for r in results:
+        for H in HORIZONS:
             response = requests.post(
-                f"{API_BASE_URL}/predict",
-                params={"H": r["horizon"]},
+                f"{API_BASE_URL}/pipeline/forecast",
+                params={"H": H},
+                headers=HEADERS,
                 timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
@@ -103,7 +119,7 @@ def nappecast_monthly_retrain():
     # .expand() = dynamic task mapping : Airflow crée une instance de `tune`
     # par valeur de HORIZONS, exécutées en parallèle. smoke_test reçoit la
     # liste des dicts retournés.
-    smoke_test(tune.expand(H=HORIZONS))
+    tune.expand(H=HORIZONS) >> smoke_test()
 
 
 nappecast_monthly_retrain()
