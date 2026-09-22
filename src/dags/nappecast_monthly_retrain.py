@@ -95,7 +95,7 @@ def nappecast_monthly_retrain():
 
 
     @task
-    def smoke_test(results: list[dict]) -> None:
+    def smoke_test() -> None:
         """
         Dernière barrière avant que le modèle serve en production : on vérifie
         que l'API répond bien à une prédiction pour chaque horizon.
@@ -111,10 +111,7 @@ def nappecast_monthly_retrain():
             )
             response.raise_for_status()
             payload = response.json()
-            print(
-                f"H={r['horizon']}d | promoted={r['promoted']} "
-                f"| version={r['version']} | predict OK ({payload['n_rows']} points)"
-            )
+            print(f"H={H}d | predict OK ({payload['n_rows']} points)")
 
     # .expand() = dynamic task mapping : Airflow crée une instance de `tune`
     # par valeur de HORIZONS, exécutées en parallèle. smoke_test reçoit la
