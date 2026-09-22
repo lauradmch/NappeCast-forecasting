@@ -1,65 +1,60 @@
-# Nom du workflow — affiché dans l'onglet "Actions" de GitHub
 name: ci-app_api
 
-# Déclencheurs : quand ce workflow s'exécute
 on:
   push:
-    branches: [main, develop]   # à chaque push sur main ou develop
+    branches: [main, develop]
   pull_request:
-    branches: [main]            # à chaque PR ciblant main
-  workflow_dispatch:      # Déclenché manuellement depuis l'onglet Actions
+    branches: [main]
+  workflow_dispatch:
 
-
-# Un workflow contient un ou plusieurs jobs
 jobs:
 
-  # Nom du job — arbitraire, affiché dans l'UI GitHub
   test:
-
-    # Machine virtuelle fournie par GitHub sur laquelle le job tourne
-    # ubuntu-latest = dernière Ubuntu LTS disponible (gratuit pour les repos publics)
     runs-on: ubuntu-latest
 
-    # Séquence d'étapes exécutées dans l'ordre sur cette machine
     steps:
 
       # Étape 1 — cloner le repo sur la machine virtuelle
-      # actions/checkout@v4 est une action officielle GitHub
       - name: Checkout
         uses: actions/checkout@v4
 
       # Étape 2 — installer Python 3.13 sur la machine virtuelle
-      # `with` passe des paramètres à l'action
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
       # Étape 3 — installer les dépendances du projet
-      # `run` exécute une commande shell directement sur la machine virtuelle
-      # équivalent à taper cette commande dans un terminal Ubuntu
       - name: Install dependencies
         run: pip install -r requirements.txt
 
       # Étape 4 — lancer les tests
-      # -v       : verbose, affiche le nom de chaque test
-      # --tb=short : en cas d'échec, affiche un traceback condensé (pas le roman complet)
-      # Le job échoue si pytest retourne un code de sortie non-zéro (≥ 1 test en FAILED)
+      # -v        : verbose, affiche le nom de chaque test
+      # --tb=short : en cas d'échec, affiche un traceback condensé
       - name: Run tests
         run: pytest tests/ -v --tb=short
-      
-      # Étape 5 — Builder l'image Docker
-      # Building de l'image à partir de .\src\api\Dockerfile
-      - name: Build Docker Image
-        run: docker build -f src/api/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/nappecast-api:latest .
-      
-      # Étape 6 — Pusher l'image sur DockerHub
-      # Connection, puis push (stockage des credentials dans les variables secrets de GitHub du repo associé)
-      - name: Loggin to DockerHub
+
+      # Étape 5 — se connecter à DockerHub
+      # Avant le build : nécessaire si la base image est privée
+      - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME  }}
-          password: ${{ secrets.DOCKERHUB_TOKEN  }}
-      
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Étape 6 — builder l'image Docker
+      # -f  : chemin vers le Dockerfile (pas à la racine du repo)
+      # .   : contexte de build = racine du repo
+      # Deux tags : SHA immuable (rollback) + latest (pointeur courant)
+      - name: Build Docker image
+        run: |
+          docker build -f src/api/Dockerfile \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/nappecast-api:${{ github.sha }} \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/nappecast-api:latest \
+            .
+
+      # Étape 7 — pusher les deux tags sur DockerHub
       - name: Push Docker image
-        run: docker push ${{ secrets.DOCKERHUB.USERNAME }}/nappecast-api:latest
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/nappecast-api:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/nappecast-api:latest
