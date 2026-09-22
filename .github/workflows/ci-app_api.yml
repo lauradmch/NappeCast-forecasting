@@ -47,3 +47,19 @@ jobs:
       # Le job échoue si pytest retourne un code de sortie non-zéro (≥ 1 test en FAILED)
       - name: Run tests
         run: pytest tests/ -v --tb=short
+      
+      # Étape 5 — Builder l'image Docker
+      # Building de l'image à partir de .\src\api\Dockerfile
+      - name: Build Docker Image
+        run: docker build -f src/api/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/nappecast-api:latest .
+      
+      # Étape 6 — Pusher l'image sur DockerHub
+      # Connection, puis push (stockage des credentials dans les variables secrets de GitHub du repo associé)
+      - name: Loggin to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME  }}
+          password: ${{ secrets.DOCKERHUB_TOKEN  }}
+      
+      - name: Push Docker image
+        run: docker push ${{ secrets.DOCKERHUB.USERNAME }}/nappecast-api:latest
