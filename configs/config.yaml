@@ -22,15 +22,14 @@ paths:
     interim: "data/interim"
     processed: "data/processed"
     external: "data/external"
+    forecast: "data/forecast"
   models: "models"
-
   local_model_filenames:
     #XGBoost: "xgboost.joblib"
     Prophet: "prophet.joblib"
-
-
   interim_filename: "dataset_interim" 
   processed_filename: "dataset_processed"
+  forecast_filename: "dataset_forecast"
   weather:
     raw_filename: "weather_raw"
     interim_filename: "weather_cleaned"
@@ -47,6 +46,7 @@ s3:
     interim: "data/interim"
     raw: "data/raw"
     external: "data/external"
+    forecast: "data/forecast"
     logs: "logs"
 
 model:

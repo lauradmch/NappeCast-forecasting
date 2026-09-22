@@ -106,7 +106,12 @@ st.markdown("""
 def load_data()-> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     df_station      = read_csv_in_s3(S3_SESSION, BUCKET_NAME, STATION_RAW_FILENAME)
     df_interim      = read_csv_in_s3(S3_SESSION, BUCKET_NAME, INTERIM_FILENAME)
+
+
     df_processed    = read_csv_in_s3(S3_SESSION, BUCKET_NAME, PROCESSED_FILENAME)
+
+
+
     return df_station, df_interim, df_processed
 
 df_station, df_interim, df_processed = load_data()
@@ -123,7 +128,7 @@ with tab_documentation:
     render_documentation()
 
 with tab_feature:
-    render_features(df_interim)
+    render_features(df_processed)
 
 with tab_analyse:
     render_stats(df_processed)

@@ -34,26 +34,24 @@ def get_model_info(model: str, horizon: int) -> dict:
     return _get("/model/info", timeout=5, model=model, horizon=horizon)
 
 
-def get_all_models_info() -> dict:
-    return _get("/model/info/all", timeout=30)
-
-
 def _secret_headers() -> dict:
     """Auth header for protected endpoints (/pipeline/collect, /train)."""
     if not PIPELINE_SECRET:
         raise RuntimeError("PIPELINE_SECRET is not set in the app environment.")
     return {"X-Pipeline-Secret": PIPELINE_SECRET}
 
-
 def run_collect_pipeline() -> dict:
-    """Collect new data and rebuild the datasets. Returns {"status", "stations", "processed_rows"}."""
+    """Collect new data and rebuild the datasets. Returns InterimResponse"""
     return _post("/pipeline/collect", timeout=120, headers=_secret_headers())
 
-def post_predict(horizon: int) -> tuple[pd.Timestamp, pd.DataFrame]:
-    """Request a forecast. Returns (last_train, forecast_df with columns ds, yhat...)."""
-    payload = _post("/predict", timeout=60, H=horizon)
+def run_feat_pipeline() -> dict:
+    """Collect feature ingineering. Returns ProcessedResponse"""
+    return _post("/pipeline/feat", timeout=120, headers=_secret_headers())
 
-    forecast_df = pd.DataFrame(payload["points"])
+def post_predict(horizon: int) -> tuple[pd.Timestamp, pd.DataFrame]:
+    """Request a forecast. Returns PredictResponse."""
+    payload = _post("/pipeline/forecast", timeout=60, H=horizon, headers=_secret_headers())
+    forecast_df = pd.DataFrame(payload["data"])
     forecast_df["ds"] = pd.to_datetime(forecast_df["ds"])
     last_train = pd.to_datetime(payload["last_train"])
     return last_train, forecast_df

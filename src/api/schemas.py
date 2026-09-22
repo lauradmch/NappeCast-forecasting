@@ -123,3 +123,6 @@ class HistoricResponse(BaseModel):
     last_train: str
     data: List[ProcessedRecord]
     
+class LoadResponse(BaseModel):
+    status: str
+    n_rows: int

@@ -18,6 +18,8 @@ from src.helper.constants import MIN_FORECAST_DAYS, TARGET_COL
 from src.helper.spli import category_label as spli_label
 from src.helper.spli import forecast as spli_forecast
 from src.models.prophet import build_daily, build_train_frame, plot_forecast
+from src.helper.data import load_daily
+
 
 # ---------------------------- VARIABLES ---------------------------
 
@@ -109,22 +111,12 @@ def render_predictions(df_prediction: pd.DataFrame) -> None:
     try:
         daily = build_daily(df_prediction)
 
+
         
         history, _ = build_train_frame(daily, H)
-
-
-
         st.plotly_chart(plot_forecast(history, forecast, H), use_container_width=True)
         _render_model_status(H)
         _render_spli(daily, forecast, last_train)
-
-
-
-        forecast = monapi.get("/getforecast(Horizon, date_hier))")
-
-        history = monapi.get("/gethistory)")
-
-        st.plotly_chart(plot_forecast(history, forecast, H), use_container_width=True)
 
     except (KeyError, ValueError) as e:
         st.error(f"Could not compute the forecast: {e}")

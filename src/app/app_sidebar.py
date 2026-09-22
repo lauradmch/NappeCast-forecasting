@@ -85,20 +85,4 @@ def render_sidebar(df_station: pd.DataFrame, code_bss: str) -> None:
             except requests.RequestException as e:
                 st.error(f"API indisponible : {e}")
 
-        if st.button("Vérifier l'état des modèles"):
-            try:
-                info = api_client.get_all_models_info()
-            except requests.RequestException as e:
-                st.error(f"Could not retrieve model status: {e}")
-            else:
-                rows = [
-                    {
-                        "Model": model_type,
-                        "Loaded": "✅" if data["loaded"] else "❌",
-                        "Source": data["source"],
-                        "Loaded at": data["loaded_at"] or "-",
-                        "Detail": data["detail"] or "-",
-                    }
-                    for model_type, data in info.items()
-                ]
-                st.table(pd.DataFrame(rows))
+        

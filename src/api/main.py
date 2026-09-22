@@ -30,7 +30,7 @@ from src.data.feat_dataset import feat_dataset
 from src.helper.aws import read_csv_in_s3
 from src.helper.data import get_historic_rds, get_forecast_rds
 
-from src.api.model_loader import get_model_info, load_model, _MLFLOW_LOADERS
+from src.api.model_loader import get_model_info, load_model
 from src.api.schemas import (
     HealthResponse,
     ModelInfoResponse,
@@ -43,10 +43,11 @@ from src.api.schemas import (
     ProcessedRecord,
     HistoricResponse,
     ForecastResponse,
+    LoadResponse
 )
 from src.models.production import promote
+from src.models.prophet_predict import predict
 from src.models.prophet import (build_train_frame,
-                                build_future_frame,
                                 build_daily,
                                 TARGET,
 )
@@ -133,59 +134,54 @@ def model_reload(model: Optional[str] = None, source: Optional[str] = None, hori
         raise HTTPException(status_code=500, detail=f"Échec du rechargement du modèle : {e}")
     return get_model_info(model=model, source=source, horizon=horizon)
 
-
 # -------------------------------------------------
 # Pipeline
 # -------------------------------------------------
 @app.post("/pipeline/collect", response_model=InterimResponse, tags=["pipeline"])
-async def collect_pipeline(_: None = Depends(verify_secret)):
+async def collect(_: None = Depends(verify_secret)):
     """lance la collect et le nettoyage""" 
     _, df_interim = build_dataset(skip_historical=True, save_csv=True)
     df_interim = df_interim.where(pd.notnull(df_interim), None)
     records = [InterimRecord(**row) for row in df_interim.to_dict(orient="records")]
     return InterimResponse(status="ok", n_rows=len(records), data=records)
     
-@app.post("/pipeline/feat", response_model=ProcessedResponse, tags=["pipeline"])
-async def feat_pipeline(_: None = Depends(verify_secret)):
+@app.post("/pipeline/transform", response_model=ProcessedResponse, tags=["pipeline"])
+async def transform(_: None = Depends(verify_secret)):
     """lance le feature engineering sur les données interim"""
     df_processed = feat_dataset(save_csv=True)
     df_processed = df_processed.where(pd.notnull(df_processed), None)
     records = [ProcessedRecord(**row) for row in df_processed.to_dict(orient="records")]
     return ProcessedResponse(status="ok", n_rows=len(records), data=records)
-    
-@app.post("/predict", response_model=PredictResponse, tags=["pipeline"])
-def predict(H: Literal[14, 30]):
+
+@app.post("/pipeline/forecast", response_model=PredictResponse, tags=["pipeline"])
+async def forecast(H: Literal[14, 30], _: None = Depends(verify_secret)):
     """Effectue le predict avec les dernières données processed"""
-
-    # build future dataframe
-    df = load_cached_dataset()
-    daily = build_daily(df)
-    future, _ = build_future_frame(daily, H)
-
-    # load model in prod
-    try:
-        model = load_model(model='Prophet', horizon=H)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Model unavailable: {e}")
-
-    # forecast
-    try:
-        forecast = model.predict(future)
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Prediction failed: {e}")
-
-    last_train = daily[daily[TARGET].notna()].index.max().strftime("%Y-%m-%d")
-    forecast["ds"] = forecast["ds"].dt.strftime("%Y-%m-%d")
-
-    points = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]] 
-    records = [PredictRecord(**row) for row in points.to_dict(orient="records")]
+    last_train, forecast = predict(H, save_csv=True)
+    records = [PredictRecord(**row) for row in forecast.to_dict(orient="records")]
     return PredictResponse(status="ok", last_train=last_train, n_rows=len(records), data=records)
+
+@app.post("/pipeline/load", response_model=LoadResponse, tags=["pipeline"])
+async def load(_: None = Depends(verify_secret)):
+    """Historise dans RDS les données"""
+
+
+
+    #return LoadResponse(status="ok", n_rows=len(records))
+
+
+
+
+@app.post("/data/transfert_log", response_model=LoadResponse, tags=["pipeline"])
+async def transfert_log(_: None = Depends(verify_secret)):
+    """Historise dans RDS les données"""
+
+
 
 # -------------------------------------------------
 # Get data from AWS RDS
 # -------------------------------------------------     
   
-@app.post("/data/historic", response_model=HistoricResponse, tags=["data"])
+@app.post("/data/processed", response_model=HistoricResponse, tags=["data"])
 def get_historic(H: Literal[14, 30], last_train: str):
     """Récupère les datas de la table historic depuis le serveur de base de données AWS RDS"""
     df_historic = get_historic_rds(H, last_train)

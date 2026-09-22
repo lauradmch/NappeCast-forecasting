@@ -23,19 +23,22 @@ Run from the project root:
 
 import argparse
 import logging
-
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 import mlflow
 import mlflow.prophet
-from mlflow import MlflowClient
+import os
 
+from mlflow import MlflowClient
+from pathlib import Path
 from src.config import load_config, mlflow_tracking_uri
-from src.models.prophet import build_train_frame, build_future_frame, plot_forecast
+from src.models.prophet import build_train_frame, build_future_frame, plot_forecast, TARGET
+from src.api.model_loader import load_model
+from src.helper.aws import save_forecast_data_to_s3
+
 from src.models.prophet_tune import (
-    BASE_PARAMS, PARAM_GRID, EXPERIMENT_NAME,
+    BASE_PARAMS, PARAM_GRID, EXPERIMENT_NAME, 
     load_daily, fit_prophet, score_config, select_score, rescore_params,
 )
 from src.models.production import (
@@ -43,7 +46,10 @@ from src.models.production import (
     notify_api_reload, promote_if_better, registered_name,
 )
 
+# ---------------------------- VARIABLES ---------------------------
 CONFIG = load_config()
+
+DATA_SOURCE = os.getenv("NAPPECAST_DATA_SOURCE", "local")  # "s3" or "local"
 
 # ---------------------------- LOGGING --------------------------------
 logger = logging.getLogger(__name__)
@@ -56,7 +62,6 @@ PROPHET_DEFAULTS = {
     "seasonality_prior_scale": 10.0,
     "changepoint_range": 0.8,
 }
-
 
 # ---------------------------------------------------------------------------
 # 1. Which config?
@@ -84,6 +89,33 @@ def resolve_tuned_params(args) -> tuple[dict, str]:
         source = "manual" if source == "prophet_defaults" else f"{source}+manual"
     return tuned, source
 
+# ---------------------------------------------------------------------------
+# predict
+# ---------------------------------------------------------------------------
+def predict (H: int, save_csv: bool = False) -> tuple[dict, str]:
+    daily = load_daily()
+    future, _ = build_future_frame(daily, H)
+
+    try:
+        model = load_model(model='Prophet', horizon=H)
+    except Exception as e:
+        raise Exception(status_code=503, detail=f"Model unavailable: {e}")
+
+    # forecast
+    try:
+        forecast = model.predict(future)
+    except Exception as e:
+        raise Exception(status_code=422, detail=f"Prediction failed: {e}")
+
+    last_train = daily[daily[TARGET].notna()].index.max().strftime("%Y-%m-%d")
+    forecast["ds"] = forecast["ds"].dt.strftime("%Y-%m-%d")
+    forecast = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+
+    if save_csv:
+        save_forecast_data_to_s3(forecast, Path(CONFIG["paths"]["data"]["forecast"]), CONFIG["paths"]["forecast_filename"], False)
+
+    return last_train, forecast
+    
 
 # ---------------------------------------------------------------------------
 # 2. Train + evaluate + log
