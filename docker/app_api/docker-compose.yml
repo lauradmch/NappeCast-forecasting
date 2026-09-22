@@ -25,9 +25,7 @@ services:
     restart: unless-stopped
 
   api:
-    build:
-      context: ../..
-      dockerfile: src/api/Dockerfile
+    image: adriencosson/nappecast-api:latest
     volumes:
       - ./logs:/home/app/logs
     environment:
