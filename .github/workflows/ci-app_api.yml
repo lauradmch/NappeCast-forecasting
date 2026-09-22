@@ -1,10 +1,10 @@
 name: ci-app_api
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
+  # push:
+    # branches: [main, develop]
+  # pull_request:
+    # branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -58,3 +58,17 @@ jobs:
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/nappecast-api:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/nappecast-api:latest
+      
+      # Étape 8 — redéployment du conteneur API à partir de la nouvelle image build
+      # appleboy/ssh-action: action officielle pour exécutetr des commandes ssh
+      - name: Deploy to EC2_APP
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_APP_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ec2-user/app/docker/app-api  # chemin du repo sur l'EC2 AWS
+            docker compose pull                   # récupération de la nouvelle image buildé depuis DockerHub
+            docker compose up -d --no-build       # redémarrage des conteneurs en arrière-plan
+            docker image prune -f                 # nettoie les anciennes images
