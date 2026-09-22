@@ -2,10 +2,11 @@
 apache-airflow-providers-postgres
 apache-airflow-providers-amazon
 
-# Data
-pandas>=2.0
-requests>=2.31.0,<3
+pandas==2.3.3
+plotly==6.9.0
+boto3==1.28.85
+requests==2.34.2
+mlflow==3.14.0
+pyyaml
+python-dotenv
 ccxt
-
-# MLOps
-boto3

@@ -23,6 +23,8 @@ Notes
 import os
 import logging
 import itertools
+import boto3
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +38,7 @@ import mlflow
 from mlflow import MlflowClient
 import mlflow.prophet
 from prophet import Prophet
+from src.helper.aws import read_csv_in_s3
 from src.models.prophet import (build_train_frame,
                                 build_future_frame,
                                 build_daily,
@@ -60,7 +63,11 @@ logging.getLogger("cmdstanpy").setLevel(logging.ERROR)
 # ---------------------------------------------------------------------------
 # Absolute path -> works whatever the working directory (run from project root:
 # python -m src.models.prophet_tune)
-INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "dataset_processed.csv"
+BUCKET_NAME             = CONFIG["s3"]["bucket"]
+#PROCESSED_FILENAME      = Path(CONFIG["paths"]["data"]["processed"]) / f"{CONFIG['paths']['processed_filename']}.csv"
+S3_KEY                  = f"{CONFIG['paths']['data']['processed']}/{CONFIG['paths']['processed_filename']}.csv"
+
+INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "dataset_processed.csv" # local path for local runs (no S3)
 RESULTS_DIR = Path(__file__).resolve().parent
 
 TARGET = "niveau_nappe_eau"
@@ -103,10 +110,18 @@ EXPERIMENT_NAME = CONFIG["mlflow"]["experiment_name"]
 # ---------------------------------------------------------------------------
 # 1. Data
 # ---------------------------------------------------------------------------
-def load_daily() -> pd.DataFrame:
-    dataset = pd.read_csv(INPUT_PATH)
-    daily = build_daily(dataset)
-    return daily
+DATA_SOURCE = os.getenv("NAPPECAST_DATA_SOURCE", "local")  # "s3" or "local"
+
+def load_daily(source: str = None) -> pd.DataFrame:
+    source = source or DATA_SOURCE
+    if source == "s3":
+        s3 = boto3.client("s3")
+        dataset = read_csv_in_s3(s3, BUCKET_NAME, S3_KEY)
+    elif source == "local":
+        dataset = pd.read_csv(INPUT_PATH)
+    else:
+        raise ValueError(f"Unknown data source: {source}")
+    return build_daily(dataset)
 
 
 # ---------------------------------------------------------------------------
@@ -311,51 +326,61 @@ def refit_best(daily, H, best_row):
     return {"name": model_name, "version": version, "run_id": run.info.run_id,
             "select_score": float(best_row["select_score"])}
 
-
 # ---------------------------------------------------------------------------
-# 5. Main
+# 5. Tune + refit + promote for one horizon
 # ---------------------------------------------------------------------------
-def main():
+def run_tuning(H: int, source: str = None) -> dict:
+    """Tune + refit + promote pour un horizon. Retourne un résumé sérialisable."""
     mlflow.set_tracking_uri(mlflow_tracking_uri())
     mlflow.set_experiment(EXPERIMENT_NAME)
 
-    daily = load_daily()
-    all_results = []
+    daily = load_daily(source)
+    results = tune_horizon(daily, H)
+    results.to_csv(RESULTS_DIR / f"tuning_results_H{H}.csv", index=False)
 
-    for H in HORIZONS:
-        results = tune_horizon(daily, H)
-        out_csv = RESULTS_DIR / f"tuning_results_H{H}.csv"
-        results.to_csv(out_csv, index=False)
-        all_results.append(results)
+    print(f"\n----- Top 5 configs for H={H}d (by CV RMSE) -----")
+    cols = ["changepoint_prior_scale", "seasonality_prior_scale",
+            "changepoint_range", "rmse", "mae", "r2", "mape",
+            "rmse_mae", "horizon_degradation", "select_score"]
+    print(results[cols].head().to_string(index=False))
+    best = results.iloc[0]
+    print(f"\nBest H={H}d: CPS={best['changepoint_prior_scale']}, "
+            f"SPS={best['seasonality_prior_scale']}, "
+          f"cp_range={best['changepoint_range']}  ->  RMSE={best['rmse']:.3f}")
+    challenger = refit_best(daily, H, best)
 
-        print(f"\n----- Top 5 configs for H={H}d (by CV RMSE) -----")
-        cols = ["changepoint_prior_scale", "seasonality_prior_scale",
-                "changepoint_range", "rmse", "mae", "r2", "mape",
-                "rmse_mae", "horizon_degradation", "select_score"]
-        print(results[cols].head().to_string(index=False))
-
-        best = results.iloc[0]
-        print(f"\nBest H={H}d: CPS={best['changepoint_prior_scale']}, "
-              f"SPS={best['seasonality_prior_scale']}, "
-              f"cp_range={best['changepoint_range']}  ->  RMSE={best['rmse']:.3f}")
-        challenger = refit_best(daily, H, best)
-
-        # Champion / challenger: the champion is re-scored on the SAME data and
-        # CV folds as the challenger, with the SAME select_score formula.
-        decision = promote_if_better(
+    # Champion / challenger: the champion is re-scored on the SAME data and
+     # CV folds as the challenger, with the SAME select_score formula.
+    decision = promote_if_better(
             name=challenger["name"],
             challenger_version=challenger["version"],
             challenger_score=challenger["select_score"],
             rescore_champion=lambda run_params, H=H: rescore_params(daily, H, run_params),
         )
-        print(f"Promotion H={H}d: {decision}")
-        if decision["promoted"]:
-            notify_api_reload(H)
+    print(f"Promotion H={H}d: {decision}")
+    if decision["promoted"]:
+        notify_api_reload(H)
 
-    combined = pd.concat(all_results, ignore_index=True)
-    combined.to_csv(RESULTS_DIR / "tuning_results_all.csv", index=False)
-    print("\nSaved: tuning_results_H14.csv, tuning_results_H30.csv, tuning_results_all.csv")
+    return {
+        "horizon": H,
+        "version": challenger["version"],
+        "promoted": decision["promoted"],
+        "select_score": challenger["select_score"],
+    }
+
+# ---------------------------------------------------------------------------
+# 6. Main
+# ---------------------------------------------------------------------------
+def main():
+    for H in HORIZONS:
+        print(run_tuning(H))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--horizon", type=int, choices=HORIZONS)
+    args = parser.parse_args()
+    if args.horizon:
+        print(run_tuning(args.horizon))
+    else:
+        main()
