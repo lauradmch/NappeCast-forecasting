@@ -14,6 +14,7 @@ from typing import Dict, Optional, Literal
 from pathlib import Path
 from src.config import load_config
 from botocore.exceptions import ClientError
+from sqlalchemy import create_engine, text
 
 # ---------------------------- LOGGING --------------------------------
 logger = logging.getLogger(__name__)
@@ -52,11 +53,20 @@ def get_historic_rds(horizon: Literal[14, 30], end_date: str) -> pd.DataFrame:
         -> connexion a postgre RDS AWS
         -> select * from spli_historic where horizon = horizon and date_train= end_date
     """
+    db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
+    engine = create_engine(db_uri)
 
+    query = text("""
+        SELECT *
+        FROM spli_historic
+        WHERE horizon = :horizon
+          AND date_train = :end_date
+    """)
 
+    with engine.connect() as conn:
+        df_historic = pd.read_sql(query, conn, params={"horizon": horizon, "end_date": end_date})
 
-    df_return = df_historic.copy()
-    return df_return
+    return df_historic.copy()
 
 
 def get_forecast_rds(horizon: Literal[14, 30], end_date: str) -> pd.DataFrame:
@@ -65,10 +75,17 @@ def get_forecast_rds(horizon: Literal[14, 30], end_date: str) -> pd.DataFrame:
         -> connexion a postgre RDS AWS
         -> select * from spli_forecast where horizon = horizon and date_train= end_date
     """
+    db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
+    engine = create_engine(db_uri)
 
-    df_return = df_forecast.copy()
+    query = text("""
+        SELECT *
+        FROM spli_forecast
+        WHERE horizon = :horizon
+          AND date_train = :end_date
+    """)
 
-    return df_forecast
- 
+    with engine.connect() as conn:
+        df_forecast = pd.read_sql(query, conn, params={"horizon": horizon, "end_date": end_date})
 
- 
+    return df_forecast.copy()
