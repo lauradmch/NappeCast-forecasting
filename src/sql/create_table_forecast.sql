@@ -13,18 +13,18 @@ CREATE TABLE IF NOT EXISTS forecast (
     yhat_upper                        DOUBLE PRECISION
 );
 
-CREATE INDEX IF NOT EXISTS idx_processed_bss_date
+CREATE INDEX IF NOT EXISTS idx_forecast_bss_date_date_index
     ON forecast (code_bss, date_index);
 
-CREATE INDEX IF NOT EXISTS idx_horizon_last_train
+CREATE INDEX IF NOT EXISTS idx_forecast_horizon_last_train
     ON forecast (horizon, last_train);
 
-CREATE INDEX IF NOT EXISTS idx_processed_code_bss
+CREATE INDEX IF NOT EXISTS idx_forecast_code_bss
     ON forecast (code_bss);
 
-CREATE INDEX IF NOT EXISTS idx_processed_inserted_at
+CREATE INDEX IF NOT EXISTS idx_forecast_inserted_at
     ON forecast (inserted_at);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_processed_bss_date_run
+CREATE UNIQUE INDEX IF NOT EXISTS uq_forecast_code_bss_date_index_horizon_last_train
     ON forecast (code_bss, date_index, horizon, last_train);
 

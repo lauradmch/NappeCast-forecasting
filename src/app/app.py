@@ -5,7 +5,6 @@
 #--------------------- LIBRARY ---------------------
 from pathlib import Path
 
-import boto3
 import pandas as pd
 import streamlit as st
 
@@ -15,19 +14,14 @@ from src.app.app_predictions import render_predictions
 from src.app.app_sidebar import render_sidebar
 from src.app.app_stats import render_stats
 from src.config import load_config
-from src.helper.aws import read_csv_in_s3
+from datetime import datetime
+from src.app import api_client
 
 #--------------------- VARIABLES ---------------------
 CONFIG = load_config()
 
-CODE_BSS                = ",".join(CONFIG["api"]["piezometer"]["code_bss"])
-STATION_RAW_FILENAME    = Path(CONFIG["paths"]["data"]["raw"]) / f"{CONFIG['paths']['station']['raw_filename']}.csv"
-INTERIM_FILENAME        = Path(CONFIG["paths"]["data"]["interim"]) / f"{CONFIG['paths']['interim_filename']}.csv"
-PROCESSED_FILENAME      = Path(CONFIG["paths"]["data"]["processed"]) / f"{CONFIG['paths']['processed_filename']}.csv"
-
-S3_SESSION              = boto3.client("s3")
-BUCKET_NAME             = CONFIG["s3"]["bucket"]
-
+CODE_BSS    = ",".join(CONFIG["api"]["piezometer"]["code_bss"])
+DATE_TRAIN  = datetime.now()
 #---------------------  Configuration section ---------------------
 st.set_page_config(
     page_title='NappeCast',
@@ -103,18 +97,14 @@ st.markdown("""
 
 #---------------------  Load data ---------------------
 @st.cache_data
-def load_data()-> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    df_station      = read_csv_in_s3(S3_SESSION, BUCKET_NAME, STATION_RAW_FILENAME)
-    df_interim      = read_csv_in_s3(S3_SESSION, BUCKET_NAME, INTERIM_FILENAME)
+def load_data(code_bss: str, end_date: datetime)-> tuple[pd.DataFrame, pd.DataFrame]:
+    df_station      = api_client.read_station_rds(code_bss)
+    df_processed    = api_client.read_processed_rds(code_bss, end_date)
 
 
-    df_processed    = read_csv_in_s3(S3_SESSION, BUCKET_NAME, PROCESSED_FILENAME)
+    return df_station, df_processed
 
-
-
-    return df_station, df_interim, df_processed
-
-df_station, df_interim, df_processed = load_data()
+df_station, df_processed = load_data(CODE_BSS, DATE_TRAIN)
 
 # --------------------- Sidebar menu ---------------------
 
@@ -128,11 +118,11 @@ with tab_documentation:
     render_documentation()
 
 with tab_feature:
-    render_features(df_processed)
+    render_features(CODE_BSS, df_processed)
 
 with tab_analyse:
-    render_stats(df_processed)
+    render_stats(CODE_BSS, df_processed)
 
 with tab_prediction:
-    render_predictions(df_processed)
+    render_predictions(CODE_BSS, DATE_TRAIN, df_processed)
     

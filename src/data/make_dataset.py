@@ -378,14 +378,6 @@ def main():
     args = parser.parse_args()
 
     build_dataset(skip_historical=args.skip_historical, save_csv=args.save_csv)
-
-    # Upload APRES le pipeline
-    upload_file_to_s3(
-        local_file=Path("logs/nappecast.log"),
-        bucket=CONFIG["s3"]["bucket"],
-        key_prefix=CONFIG["s3"]["prefixes"]["logs"],
-        with_timestamp=True
-    )
-
+    
 if __name__ == "__main__":
     main()

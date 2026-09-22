@@ -19,7 +19,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy import MetaData, Table, create_engine, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from datetime import date
+from datetime import date, datetime
 
 # ---------------------------- LOGGING --------------------------------
 logger = logging.getLogger(__name__)
@@ -182,18 +182,42 @@ def load_historical_in_s3(weather_raw_filename: str,
 
 # ---------------------------- RDS ---------------------------
 
-def read_processed_rds(code_bss: str, end_date: date) -> pd.DataFrame:
+def read_station_rds(code_bss: str) -> pd.DataFrame:
     """
     Intérroge la base de données RDS
         -> connexion a postgre RDS AWS
-        -> passer une date de la forme datetime.strptime(end_date, "%Y-%m-%d").date()
     """
+    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
     engine = create_engine(db_uri)
 
     query = text("""
         SELECT *
-        FROM spli_historic
+        FROM 
+            station
+        WHERE 
+            code_bss = :code_bss
+    """)
+
+    with engine.connect() as conn:
+        df = pd.read_sql(query, conn, params={"code_bss": code_bss})
+
+    return df.copy()
+
+
+def read_processed_rds(code_bss: str, end_date: date) -> pd.DataFrame:
+    """
+    Intérroge la base de données RDS
+        -> connexion a postgre RDS AWS
+    """
+    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+    db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
+    engine = create_engine(db_uri)
+
+    query = text("""
+        SELECT *
+        FROM 
+            processed
         WHERE 
             date_index < :end_date
             AND code_bss = :code_bss
@@ -204,19 +228,21 @@ def read_processed_rds(code_bss: str, end_date: date) -> pd.DataFrame:
 
     return df.copy()
 
+
 def read_forecast_rds(code_bss: str, horizon: Literal[14, 30], start_date: date) -> pd.DataFrame:
     """
     Intérroge la base de données RDS
         -> connexion a postgre RDS AWS
         -> select * from spli_forecast where horizon = horizon and date_train= end_date
-        -> passer une date de la forme datetime.strptime(end_date, "%Y-%m-%d").date()
     """
+    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
     engine = create_engine(db_uri)
 
     query = text("""
         SELECT *
-        FROM spli_forecast
+        FROM 
+            forecast
         WHERE 
             date_index >= :start_date
             AND code_bss = :code_bss
@@ -227,6 +253,7 @@ def read_forecast_rds(code_bss: str, horizon: Literal[14, 30], start_date: date)
         df = pd.read_sql(query, conn, params={"horizon": horizon, "code_bss": code_bss, "start_date": start_date})
 
     return df.copy()
+
 
 def load_csv_to_rds(s3_client, 
                     bucket: str, 
@@ -268,6 +295,20 @@ def load_csv_to_rds(s3_client,
  
     return {"rows_read": len(df), "rows_inserted": inserted_total}
 
+
+def load_station_to_rds() -> dict:
+    s3 = boto3.client("s3")
+    filename = str(Path(CONFIG["paths"]["data"]["raw"])/f"{CONFIG['paths']['station']['raw_filename']}.csv")
+    sql_path = Path(__file__).parent.parent / "sql" / "create_table_station.sql"
+
+    return load_csv_to_rds(s3, 
+                           CONFIG["s3"]["bucket"], 
+                           filename, 
+                           sql_path,
+                           ["code_bss"],
+                           "station")
+
+
 def load_forecast_to_rds() -> dict:
     s3 = boto3.client("s3")
     filename = str(Path(CONFIG["paths"]["data"]["forecast"])/f"{CONFIG['paths']['data']['forecast_filename']}.csv")
@@ -277,8 +318,9 @@ def load_forecast_to_rds() -> dict:
                            CONFIG["s3"]["bucket"], 
                            filename, 
                            sql_path,
-                           ["bss_id","date_index"],
+                           ["code_bss", "date_index", "horizon", "last_train"],
                            "forecast")
+
 
 def load_processed_to_rds() -> dict:
     s3 = boto3.client("s3")
@@ -289,7 +331,7 @@ def load_processed_to_rds() -> dict:
                            CONFIG["s3"]["bucket"], 
                            filename, 
                            sql_path,
-                           ["bss_id","date_index"],
+                           ["code_bss","date_index"],
                            "processed")
 
 

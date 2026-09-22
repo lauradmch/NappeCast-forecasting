@@ -18,8 +18,8 @@ from src.helper.constants import MIN_FORECAST_DAYS, TARGET_COL
 from src.helper.spli import category_label as spli_label
 from src.helper.spli import forecast as spli_forecast
 from src.models.prophet import build_daily, build_train_frame, plot_forecast
-from src.helper.data import load_daily
-
+from datetime import date
+from typing import Optional, Literal
 
 # ---------------------------- VARIABLES ---------------------------
 
@@ -40,8 +40,9 @@ logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
 
 @st.cache_data(show_spinner=False)
-def fetch_forecast(H: int):
-    return api_client.post_predict(H)
+def fetch_forecast(code_bss: str, horizon: Literal[14, 30], start_date: date):
+    return api_client.post_forecast(code_bss, horizon, start_date)
+
 
 def _render_model_status(H: int) -> None:
     """Caption with the time the model for horizon H was loaded."""
@@ -83,39 +84,31 @@ def _render_spli(daily: pd.DataFrame, forecast: pd.DataFrame, last_train: pd.Tim
 
 # ---------------------------- METHODS ---------------------------
 
-def render_predictions(df_prediction: pd.DataFrame) -> None:
+def render_predictions(code_bss: str, start_date: date, df_prediction: pd.DataFrame) -> None:
     # ============ Prophet forecast (computed in the app) ============
     st.subheader("Groundwater level forecast (Prophet)")
 
-    H = st.radio(
+    horizon = st.radio(
         "Forecast horizon (days)",
         options=[14, 30],
         index=1,
         horizontal=True,
         help="H sets the regressor lag, the horizon, and its own hyperparameter config.",
     )
-    run = st.button("Run forecast")
-
-    # auto-run once on first load with default params
-    if not run and st.session_state.get("forecast_ran", False):
-        return
-    st.session_state["forecast_ran"] = True
 
     with st.spinner("Fetching forecast from API..."):
         try:
-            last_train, forecast = fetch_forecast(H)
+            last_train, forecast = fetch_forecast(code_bss, horizon, start_date)
+ 
         except (requests.RequestException, KeyError) as e:
             st.error(f"Could not reach the forecast API: {e}")
             return
 
     try:
         daily = build_daily(df_prediction)
-
-
-        
-        history, _ = build_train_frame(daily, H)
-        st.plotly_chart(plot_forecast(history, forecast, H), use_container_width=True)
-        _render_model_status(H)
+        history, _ = build_train_frame(daily, horizon)
+        st.plotly_chart(plot_forecast(history, forecast, horizon), use_container_width=True)
+        _render_model_status(horizon)
         _render_spli(daily, forecast, last_train)
 
     except (KeyError, ValueError) as e:

@@ -163,7 +163,7 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
     return fig, best_txt
 
 
-def render_stats(df_processed: pd.DataFrame):
+def render_stats(code_bss: str, df_processed: pd.DataFrame):
     if df_processed is None or df_processed.empty:
         st.warning("No dataset loaded.")
         st.stop()

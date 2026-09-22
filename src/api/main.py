@@ -3,70 +3,54 @@ API de test (acces databse, acces inférence ...)
 """
 
 import threading
-import uvicorn
 import pandas as pd 
 import boto3
-import urllib 
 import logging
 import os
-import mlflow
-import numpy as np
 
 from fastapi import FastAPI, Depends, Header, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
-from prophet import Prophet
-from mlflow.exceptions import RestException
-from mlflow import MlflowClient
-
-
-from typing import Dict, Optional, Literal
+from datetime import date, datetime
+from typing import Optional, Literal
 from pathlib import Path
-from src.config import load_config, mlflow_tracking_uri
+from src.config import load_config
 
 from src.data.make_dataset import build_dataset
 from src.data.feat_dataset import feat_dataset
-from src.helper.aws import read_csv_in_s3
-from src.helper.data import get_historic_rds, get_forecast_rds
+from src.helper.aws import (
+    load_processed_to_rds, 
+    load_station_to_rds, 
+    load_forecast_to_rds,
+    read_processed_rds,
+    read_forecast_rds,
+    read_station_rds,
+    upload_file_to_s3
+)
 
 from src.api.model_loader import get_model_info, load_model
 from src.api.schemas import (
     HealthResponse,
     ModelInfoResponse,
-    PredictResponse,
-    PredictRecord,
-    TrainingResponse,
-    InterimRecord, 
+    StationResponse,
+    StationRecord,
     InterimResponse,
+    InterimRecord,
     ProcessedResponse, 
     ProcessedRecord,
-    HistoricResponse,
     ForecastResponse,
+    ForecastRecord,
     TuningResponse,
-    LoadResponse
+    LoadResponse,
+    TransfertLogResponse
 )
-from src.models.production import promote
+
 from src.models.prophet_predict import predict
 from src.models.prophet_tune import run_tuning
-from src.models.prophet import (build_train_frame,
-                                build_daily,
-                                TARGET,
-)
 
 #--------------------- VARIABLES ---------------------
 CONFIG = load_config()
-S3_SESSION              = boto3.client("s3") 
-BUCKET_NAME             = CONFIG["s3"]["bucket"]
-PROCESSED_FILENAME      = Path(CONFIG["paths"]["data"]["processed"]) / f"{CONFIG['paths']['processed_filename']}.csv"
-# TODO: commit tuning_results files and add path in config
-TUNING_CSV_PATH         = Path(__file__).resolve().parents[2] / "src" / "models"
-
-EXPERIMENT_NAME = CONFIG["mlflow"]["experiment_name"]
 PIPELINE_SECRET = os.environ["PIPELINE_SECRET"]
 
-_cache: dict = {}  # {"etag": str, "df": pd.DataFrame}
 _tuning_lock = threading.Lock()  # pour éviter que deux tuning se chevauchent (et écrasent le CSV)
 
 # ---------------------------- LOGGING --------------------------------
@@ -105,14 +89,6 @@ def verify_secret(x_pipeline_secret: str = Header(...)):
     if x_pipeline_secret != PIPELINE_SECRET:
         raise HTTPException(status_code=403, detail="Secret invalide")
 
-def load_cached_dataset() -> pd.DataFrame:
-    head = S3_SESSION.head_object(Bucket=BUCKET_NAME, Key=PROCESSED_FILENAME)
-    etag = head["ETag"]
-    if _cache.get("etag") != etag:
-        logger.info("Dataset cache miss (etag=%s) — reloading from S3", etag)
-        _cache["df"]   = read_csv_in_s3(S3_SESSION, BUCKET_NAME, PROCESSED_FILENAME)
-        _cache["etag"] = etag
-    return _cache["df"]
 
 @app.get("/health", response_model=HealthResponse, tags=["monitoring"])
 def health():
@@ -129,6 +105,7 @@ def model_info(model: Optional[str] = None, source: Optional[str] = None, horizo
     """État du modèle en cache pour le type/source donnés (ou le modèle actif par défaut si omis)."""
     return get_model_info(model=model, source=source, horizon=horizon)
 
+
 @app.post("/model/reload", response_model=ModelInfoResponse, tags=["monitoring"])
 def model_reload(model: Optional[str] = None, source: Optional[str] = None, horizon: Optional[int] = None, _: None = Depends(verify_secret)):
     """Force un rechargement du modèle (type/source donnés, ou modèle actif par défaut) — utile après un nouvel entraînement."""
@@ -143,27 +120,57 @@ def model_reload(model: Optional[str] = None, source: Optional[str] = None, hori
 # -------------------------------------------------
 @app.post("/pipeline/collect", response_model=InterimResponse, tags=["pipeline"])
 def collect(_: None = Depends(verify_secret)):
-    """lance la collect et le nettoyage""" 
-    _, df_interim = build_dataset(skip_historical=True, save_csv=True)
+    """lance la collect et le nettoyage"""
+    try:
+        _, df_interim = build_dataset(skip_historical=True, save_csv=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la collecte des données : {e}")
+
     df_interim = df_interim.where(pd.notnull(df_interim), None)
-    records = [InterimRecord(**row) for row in df_interim.to_dict(orient="records")]
+
+    try:
+        records = [InterimRecord(**row) for row in df_interim.to_dict(orient="records")]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de formatage des données : {e}")
+
     return InterimResponse(status="ok", n_rows=len(records), data=records)
     
 @app.post("/pipeline/transform", response_model=ProcessedResponse, tags=["pipeline"])
 def transform(_: None = Depends(verify_secret)):
     """lance le feature engineering sur les données interim"""
-    df_processed = feat_dataset(save_csv=True)
+    try:
+        df_processed = feat_dataset(save_csv=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du feature engineering : {e}")
+
     df_processed = df_processed.where(pd.notnull(df_processed), None)
-    records = [ProcessedRecord(**row) for row in df_processed.to_dict(orient="records")]
+
+    try:
+        records = [ProcessedRecord(**row) for row in df_processed.to_dict(orient="records")]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de formatage des données : {e}")
+
     return ProcessedResponse(status="ok", n_rows=len(records), data=records)
 
-@app.post("/pipeline/forecast", response_model=PredictResponse, tags=["pipeline"])
+
+@app.post("/pipeline/forecast", response_model=ForecastResponse, tags=["pipeline"])
 def forecast(H: Literal[14, 30], _: None = Depends(verify_secret)):
     """Effectue le predict avec les dernières données processed"""
-    last_train, forecast = predict(H, save_csv=True)
-    records = [PredictRecord(**row) for row in forecast.to_dict(orient="records")]
-    return PredictResponse(status="ok", horizon=H, last_train=last_train,
-                           n_rows=len(records), data=records)
+    try:
+        last_train, df_forecast = predict(H, save_csv=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du calcul de la prévision : {e}")
+
+    df_forecast = df_forecast.where(pd.notnull(df_forecast), None)
+
+    try:
+        records = [ForecastRecord(**row) for row in df_forecast.to_dict(orient="records")]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de formatage des données : {e}")
+
+    return ForecastResponse(status="ok", horizon=H, last_train=last_train,
+                             n_rows=len(records), data=records)
+
 
 @app.post("/pipeline/tuning", response_model=TuningResponse, tags=["training"])
 def run_model_tuning(H: Literal[14, 30], source: Literal["s3", "local"] = "s3", _: None = Depends(verify_secret)):
@@ -179,126 +186,91 @@ def run_model_tuning(H: Literal[14, 30], source: Literal["s3", "local"] = "s3", 
     finally:
         _tuning_lock.release()
 
+
 @app.post("/pipeline/load", response_model=LoadResponse, tags=["pipeline"])
-async def load(_: None = Depends(verify_secret)):
+def load(_: None = Depends(verify_secret)):
     """Historise dans RDS les données"""
+    try:
+        _, insert_station = load_station_to_rds()
+        _, insert_processed = load_processed_to_rds()
+        _, insert_forecast = load_forecast_to_rds()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du chargement des données dans RDS : {e}")
+
+    return LoadResponse(status="ok", nb_station=insert_station, nb_processed=insert_processed, nb_forecast=insert_forecast)
 
 
+@app.post("/data/transfert_log", response_model=TransfertLogResponse, tags=["pipeline"])
+def transfert_log(_: None = Depends(verify_secret)):
+    """Historise dans S3 le fichier de log"""
+    try:
+        upload_file_to_s3(
+            local_file=Path("logs/nappecast.log"),
+            bucket=CONFIG["s3"]["bucket"],
+            key_prefix=CONFIG["s3"]["prefixes"]["logs"],
+            with_timestamp=True
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'envoi du log vers S3 : {e}")
 
-    #return LoadResponse(status="ok", n_rows=len(records))
-
-
-
-
-@app.post("/data/transfert_log", response_model=LoadResponse, tags=["pipeline"])
-async def transfert_log(_: None = Depends(verify_secret)):
-    """Historise dans RDS les données"""
-
+    return TransfertLogResponse(status="ok", file="logs/nappecast.log")
 
 
 # -------------------------------------------------
 # Get data from AWS RDS
 # -------------------------------------------------     
-  
-@app.post("/data/processed", response_model=HistoricResponse, tags=["data"])
-def get_historic(H: Literal[14, 30], last_train: str):
-    """Récupère les datas de la table historic depuis le serveur de base de données AWS RDS"""
-    df_historic = get_historic_rds(H, last_train)
-    records = [ProcessedRecord(**row) for row in df_historic.to_dict(orient="records")]
-    return HistoricResponse(status="ok", n_rows=len(records), horizon=H, last_train=last_train, data=records)
+@app.post("/data/station", response_model=StationResponse, tags=["data"])
+def get_station(code_bss: str):
+    """Récupère les datas de la table station depuis le serveur de base de données AWS RDS"""
+    try:
+        df_station = read_station_rds(code_bss)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données station : {e}")
 
-@app.post("/data/forecast", response_model=ForecastResponse, tags=["data"])
-def get_forecast(H: Literal[14, 30], last_train):
-    """Récupère les datas de la table forecast depuis le serveur de base de données AWS RDS"""
-    df_forecast= get_forecast_rds(H, last_train)
-    records = [PredictRecord(**row) for row in df_forecast.to_dict(orient="records")]
-    return ForecastResponse(status="ok", n_rows=len(records), horizon=H, last_train=last_train, data=records)
-
-
-
-'TODO : a revoir'
-@app.post("/train", response_model=TrainingResponse, tags=["training"])
-def training(H: Literal[14, 30], _: None = Depends(verify_secret)):
-    mlflow.set_tracking_uri(mlflow_tracking_uri())
-    mlflow.set_experiment(EXPERIMENT_NAME)
-
-    # Registered name + alias from CONFIG (name is nested by horizon → Prophet)
-    name  = CONFIG["mlflow"]["registered_model_name"][f"h{H}"]["Prophet"]
-    alias = CONFIG["mlflow"]["model_alias"]          # e.g. "production"
-
-    client = MlflowClient()
-
-    # --- 1. Fetch hyperparams (from @production, fallback to tuning CSV) ---
-    PROPHET_FLOAT = {"changepoint_prior_scale", "seasonality_prior_scale",
-                     "changepoint_range", "interval_width"}
-    PROPHET_BOOL  = {"weekly_seasonality", "daily_seasonality", "yearly_seasonality"}
-    PROPHET_STR   = {"seasonality_mode"}
-    ALLOWED = PROPHET_FLOAT | PROPHET_BOOL | PROPHET_STR
-
-    # convert to float
-    def _cast(k, v):
-        if k in PROPHET_FLOAT: return float(v)
-        if k in PROPHET_BOOL:  return str(v).lower() == "true"
-        return v
+    if df_station is None or df_station.empty:
+        raise HTTPException(status_code=404, detail=f"Aucune station trouvée pour code_bss={code_bss}")
 
     try:
-        mv = client.get_model_version_by_alias(name, alias)   # <-- assign it
-        prev_version = mv.version
-        raw = client.get_run(mv.run_id).data.params
-    except RestException:
-        logger.warning("No @production for %s — bootstrapping from tuning CSV", name)
-        prev_version = None
-        best = pd.read_csv(TUNING_CSV_PATH / f"tuning_results_H{H}.csv").iloc[0]
-        tuned = {k: str(best[k]) for k in
-                 ("changepoint_prior_scale", "seasonality_prior_scale", "changepoint_range")}
-        # merge the fixed params so the first model == the tuned config
-        # (otherwise weekly/daily_seasonality fall back to Prophet's "auto")
-        base = CONFIG["model"]["prophet"]["base_params"]
-        raw = {**{k: str(v) for k, v in base.items()}, **tuned}
+        records = [StationRecord(**row) for row in df_station.to_dict(orient="records")]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de formatage des données : {e}")
 
-    params = {k: _cast(k, v) for k, v in raw.items() if k in ALLOWED}
-
-    # --- 2. Dataset (cached S3 read by ETag) ---
-    df_prediction = load_cached_dataset()
-    daily = build_daily(df_prediction)
-    df_train, regressor_cols = build_train_frame(daily, H)
-
-    # --- 3. Fit + log + register + promote ---
-    with mlflow.start_run(run_name=f"prophet-production-H{H}") as run:
-        mlflow.log_params({**params, "horizon_days": H,
-                           "last_train_date": str(df_train["ds"].max().date()),
-                           "n_train_rows": len(df_train)})
-        mlflow.set_tags({"horizon": str(H), "train_type": "refit"})   # vs "tuning"
-
-        model = Prophet(**params)
-        for col in regressor_cols:
-            model.add_regressor(col)
-        model.fit(df_train)
-
-        info = mlflow.prophet.log_model(
-            pr_model=model,
-            name="model",                        # artifact_path is deprecated in MLflow 3
-            registered_model_name=name,          # <-- CONFIG name
-        )
-        new_version = str(info.registered_model_version)
-        run_id = run.info.run_id
-
-    # --- 4. Promote: same hyperparams, more data -> refit replaces production ---
-    #     (champion/challenger comparison is done in prophet_tune.py, where params change)
-    promote(client, name, new_version, mv if prev_version else None,
-             reason="scheduled refit on new data (same hyperparameters)")
-
-    # --- 5. Swap the API cache (same process: no HTTP needed) ---
-    load_model(model="Prophet", horizon=H, force_reload=True)
-
-    return {
-        "horizon": H,
-        "new_version": new_version,
-        "previous_version": str(prev_version) if prev_version else None,
-        "run_id": run_id,
-    }
+    return StationResponse(status="ok", n_rows=len(records), data=records)
 
 
+@app.post("/data/processed", response_model=ProcessedResponse, tags=["data"])
+def get_processed(code_bss: str, end_date: date):
+    """Récupère les datas de la table processed depuis le serveur de base de données AWS RDS"""
+    try:
+        df_processed = read_processed_rds(code_bss, end_date)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données processed : {e}")
+
+    if df_processed is None or df_processed.empty:
+        raise HTTPException(status_code=404, detail=f"Aucune donnée processed trouvée pour code_bss={code_bss}")
+
+    try:
+        records = [ProcessedRecord(**row) for row in df_processed.to_dict(orient="records")]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de formatage des données : {e}")
+
+    return ProcessedResponse(status="ok", n_rows=len(records), last_train=end_date, data=records)
 
 
+@app.post("/data/forecast", response_model=ForecastResponse, tags=["data"])
+def get_forecast(code_bss: str, horizon: Literal[14, 30], start_date: date):
+    """Récupère les datas de la table forecast depuis le serveur de base de données AWS RDS"""
+    try:
+        df_forecast = read_forecast_rds(code_bss, horizon, start_date)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des prévisions : {e}")
 
+    if df_forecast is None or df_forecast.empty:
+        raise HTTPException(status_code=404, detail=f"Aucune prévision trouvée pour code_bss={code_bss}")
+
+    try:
+        records = [ForecastRecord(**row) for row in df_forecast.to_dict(orient="records")]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de formatage des données : {e}")
+
+    return ForecastResponse(status="ok", n_rows=len(records), horizon=horizon, last_train=start_date, data=records)

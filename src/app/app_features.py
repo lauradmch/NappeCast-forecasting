@@ -15,7 +15,7 @@ import streamlit as st
 
 # ---------------------------- METHODES ---------------------------
 
-def render_features(df_cleaned = pd.DataFrame) -> None:
+def render_features(code_bss: str, df_cleaned = pd.DataFrame) -> None:
         st.header("""
             Exploratory Data Analysis and feature engineering performed on the merged weather & piezometer datasets:
             """)

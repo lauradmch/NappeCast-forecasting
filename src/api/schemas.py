@@ -17,11 +17,6 @@ class ModelInfoResponse(BaseModel):
     loaded_at: Optional[str] = None
     detail: Optional[str] = None
 
-class PredictRecord(BaseModel):
-    ds: str
-    yhat: float
-    yhat_lower: float
-    yhat_upper: float
 
 class TrainingResponse(BaseModel):
     horizon: int
@@ -29,8 +24,58 @@ class TrainingResponse(BaseModel):
     previous_version: Optional[str] = None
     run_id: str
 
+
 class HealthResponse(BaseModel):
     status: str
+
+
+class StationRecord(BaseModel):
+    code_bss: str
+    urn_bss: str
+    date_debut_mesure: Optional[date] = None
+    date_fin_mesure: Optional[date] = None
+    code_commune_insee: str
+    nom_commune: str
+    longitude: float
+    latitude: float
+    codes_bdlisa: List[str] = str
+    urns_bdlisa: List[str] = str
+    geometry: Optional[dict] = None
+    bss_id: str
+    altitude_station: Optional[float] = None
+    nb_mesures_piezo: Optional[int] = None
+    code_departement: str
+    nom_departement: str
+    libelle_pe: str
+    profondeur_investigation: Optional[float] = None
+    codes_masse_eau_edl: str
+    noms_masse_eau_edl: str
+    urns_masse_eau_edl: str
+    date_maj: Optional[datetime] = None
+
+
+class InterimRecord(BaseModel):
+    latitude: float
+    longitude: float
+    temperature_2m_max: float
+    sunrise: datetime
+    sunset: datetime
+    daylight_duration: float
+    precipitation_sum: float
+    shortwave_radiation_sum: float
+    et0_fao_evapotranspiration: float
+    cloud_cover_mean: float
+    pressure_msl_mean: float
+    wind_speed_10m_mean: float
+    soil_moisture_0_to_100cm_mean: float
+    soil_temperature_0_to_100cm_mean: float
+    code_bss: str
+    date_index: date
+    bss_id: str
+    niveau_nappe_eau: float
+    mode_obtention: str
+    nom_producteur: str
+
 
 class ProcessedRecord(BaseModel):
     latitude: float
@@ -70,63 +115,51 @@ class ProcessedRecord(BaseModel):
     SPEI: Optional[float] = None
     SSMI: Optional[float] = None
 
-class InterimRecord(BaseModel):
-    latitude: float
-    longitude: float
-    temperature_2m_max: float
-    sunrise: datetime
-    sunset: datetime
-    daylight_duration: float
-    precipitation_sum: float
-    shortwave_radiation_sum: float
-    et0_fao_evapotranspiration: float
-    cloud_cover_mean: float
-    pressure_msl_mean: float
-    wind_speed_10m_mean: float
-    soil_moisture_0_to_100cm_mean: float
-    soil_temperature_0_to_100cm_mean: float
-    code_bss: str
-    date_index: date
-    bss_id: str
-    niveau_nappe_eau: float
-    mode_obtention: str
-    nom_producteur: str
 
-class ProcessedResponse(BaseModel):
+class ForecastRecord(BaseModel):
+    ds: str
+    yhat: float
+    yhat_lower: float
+    yhat_upper: float
+
+
+class StationResponse(BaseModel):
     status: str
     n_rows: int
-    data: List[ProcessedRecord]
-    
+    data: List[StationRecord]
+
+
 class InterimResponse(BaseModel):
     status: str
     n_rows: int
     data: List[InterimRecord]
 
-class PredictResponse(BaseModel):
+
+class ProcessedResponse(BaseModel):
     status: str
     n_rows: int
-    horizon : int
-    last_train: str
-    data: List[PredictRecord]
+    data: List[ProcessedRecord]
+
 
 class ForecastResponse(BaseModel):
     status: str
     n_rows: int
     horizon : int
     last_train: str
-    data: List[PredictRecord]
+    data: List[ForecastRecord]
+
 
 class TuningResponse(BaseModel):
     horizon: int
     status: str
 
-class HistoricResponse(BaseModel):
-    status: str
-    n_rows: int
-    horizon : int
-    last_train: str
-    data: List[ProcessedRecord]
-    
+
 class LoadResponse(BaseModel):
     status: str
-    n_rows: int
+    nb_station: int
+    nb_processed: int
+    nb_forecast: int
+
+class TransfertLogResponse(BaseModel):
+    status: str
+    file: str
