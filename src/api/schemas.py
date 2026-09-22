@@ -29,12 +29,6 @@ class TrainingResponse(BaseModel):
     previous_version: Optional[str] = None
     run_id: str
 
-class TrainingResponse(BaseModel):
-    horizon: int
-    new_version: Optional[str] = None
-    previous_version: Optional[str] = None
-    run_id: str
-
 class HealthResponse(BaseModel):
     status: str
 

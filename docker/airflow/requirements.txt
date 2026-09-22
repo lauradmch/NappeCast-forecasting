@@ -1,2 +1,11 @@
+# Providers Airflow (connexions Postgres & AWS/S3)
+apache-airflow-providers-postgres
+apache-airflow-providers-amazon
+
+# Data
+pandas>=2.0
+requests>=2.31.0,<3
 ccxt
-pandas
+
+# MLOps
+boto3
