@@ -13,7 +13,6 @@ venv/
 .venv/
 env/
 .env
-*.env
 !.env.example
 .env.runtime
 *secret*

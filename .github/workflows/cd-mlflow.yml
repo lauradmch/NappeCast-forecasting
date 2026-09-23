@@ -80,7 +80,7 @@ jobs:
           host: ${{ secrets.MLFLOW_EC2_HOST }}
           username: ${{ secrets.MLFLOW_EC2_USER }}
           key: ${{ secrets.MLFLOW_EC2_SSH_KEY }}
-          source: "docker/mlflow/docker-compose.yml,docker/mlflow/.env,docker/mlflow/deploy.sh"
+          source: "docker/mlflow/docker-compose.yml,docker/mlflow/mlflow.env,docker/mlflow/deploy.sh"
           strip_components: 2
           target: /tmp/mlflow-deploy
 
@@ -94,10 +94,9 @@ jobs:
             set -e
             sudo mkdir -p /opt/mlflow
             sudo mv /tmp/mlflow-deploy/docker-compose.yml /opt/mlflow/docker-compose.yml
-            sudo mv /tmp/mlflow-deploy/.env               /opt/mlflow/.env
+            sudo mv /tmp/mlflow-deploy/mlflow.env         /opt/mlflow/mlflow.env
             sudo mv /tmp/mlflow-deploy/deploy.sh          /opt/mlflow/deploy.sh
-            sudo chown appuser:appuser /opt/mlflow/docker-compose.yml /opt/mlflow/.env /opt/mlflow/deploy.sh
-            sudo chmod 600 /opt/mlflow/.env
+            sudo chown appuser:appuser /opt/mlflow/docker-compose.yml /opt/mlflow/mlflow.env /opt/mlflow/deploy.sh
             sudo chmod +x /opt/mlflow/deploy.sh
             sudo /opt/mlflow/deploy.sh
             rm -rf /tmp/mlflow-deploy
