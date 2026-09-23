@@ -90,6 +90,7 @@ jobs:
           host: ${{ secrets.AIRFLOW_EC2_HOST }}
           username: ${{ secrets.AIRFLOW_EC2_USER }}
           key: ${{ secrets.AIRFLOW_EC2_SSH_KEY }}
+          command_timeout: 30m
           script: |
             set -e
             sudo mkdir -p /opt/airflow
