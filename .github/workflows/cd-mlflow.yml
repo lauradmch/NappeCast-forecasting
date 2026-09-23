@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docker/mlflow/**'
+    workflow_dispatch:
 
 permissions:
   id-token: write
