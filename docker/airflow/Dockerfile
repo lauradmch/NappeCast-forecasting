@@ -1,4 +1,4 @@
-FROM apache/airflow:2.11.0
+FROM apache/airflow:3.1.3
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -9,6 +9,9 @@ USER airflow
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir "apache-airflow==3.1.3" -r requirements.txt
+RUN pip install --no-cache-dir \
+      "apache-airflow==${AIRFLOW_VERSION}" \
+      -r requirements.txt \
+      --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_MAJOR_MINOR_VERSION}.txt"
 
 ENV PYTHONPATH=/opt/airflow
