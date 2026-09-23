@@ -191,9 +191,9 @@ def run_model_tuning(H: Literal[14, 30], source: Literal["s3", "local"] = "s3", 
 def load(_: None = Depends(verify_secret)):
     """Historise dans RDS les données"""
     try:
-        _, insert_station = load_station_to_rds()
-        _, insert_processed = load_processed_to_rds()
-        _, insert_forecast = load_forecast_to_rds()
+        insert_station   = load_station_to_rds()["rows_inserted"]
+        insert_processed = load_processed_to_rds()["rows_inserted"]
+        insert_forecast  = sum(load_forecast_to_rds(H)["rows_inserted"] for H in (14, 30))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du chargement des données dans RDS : {e}")
 

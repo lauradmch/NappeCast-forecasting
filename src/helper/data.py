@@ -44,3 +44,10 @@ def build_start_dates(df_station: pd.DataFrame, last_dates: dict, default_start:
  
     return df_station["code_bss"].map(start_for)
 
+def station_identity(df: pd.DataFrame) -> tuple[str, str]:
+    """(code_bss, bss_id) — raises if the dataset holds more than one station."""
+    codes = df["code_bss"].dropna().unique()
+    if len(codes) != 1:
+        raise ValueError(f"Expected exactly one code_bss, got {list(codes)}")
+    bss_id = df.loc[df["code_bss"] == codes[0], "bss_id"].dropna().iloc[0]
+    return str(codes[0]), str(bss_id)

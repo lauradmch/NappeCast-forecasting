@@ -21,19 +21,22 @@ Déroulé :
     8. cleanup_tmp_file             -> supprime le fichier temporaire local
 """
 import logging
+from xml.parsers.expat import model
 import requests
 
 from typing import  Literal
 from pathlib import Path
 from datetime import datetime, timedelta
-from __future__ import annotations
 from airflow.decorators import dag, task
 from airflow.exceptions import AirflowException
 from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
- 
+
+from src.api.main import forecast
+from __future__ import annotations
+
 # ---------------------------------------------------------------------------
 # logs
 # ---------------------------------------------------------------------------
@@ -227,13 +230,15 @@ def nappecast_fetch_external_apis():
     hubeau_health = check_hubeau_health()
     openweather_health = check_openweather_health()
     collect_data = collect()
+    transform_data = transform()
     predictH14 = predict(horizon=14)
     predictH30 = predict(horizon=30)
     load_data = load()
     
     [hubeau_health, openweather_health] >> health_checks_passed
     health_checks_passed >> collect_data
-    collect_data >> [predictH14,predictH30]
-    [predictH14,predictH30]>>load_data
+    collect_data >> transform
+    transform_data >> [predictH14,predictH30]
+    [predictH14,predictH30] >> load_data
 
 nappecast_fetch_external_apis()
