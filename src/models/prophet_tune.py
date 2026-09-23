@@ -112,17 +112,17 @@ EXPERIMENT_NAME = CONFIG["mlflow"]["experiment_name"]
 # ---------------------------------------------------------------------------
 DATA_SOURCE = os.getenv("NAPPECAST_DATA_SOURCE", "local")  # "s3" or "local"
 
-def load_daily(source: str = None) -> pd.DataFrame:
+def load_dataset(source: str = None) -> pd.DataFrame:
     source = source or DATA_SOURCE
     if source == "s3":
         s3 = boto3.client("s3")
-        dataset = read_csv_in_s3(s3, BUCKET_NAME, S3_KEY)
+        return read_csv_in_s3(s3, BUCKET_NAME, S3_KEY)
     elif source == "local":
-        dataset = pd.read_csv(INPUT_PATH)
-    else:
-        raise ValueError(f"Unknown data source: {source}")
-    return build_daily(dataset)
+        return pd.read_csv(INPUT_PATH)
+    raise ValueError(f"Unknown data source: {source}")
 
+def load_daily(source: str = None) -> pd.DataFrame:
+    return build_daily(load_dataset(source))
 
 # ---------------------------------------------------------------------------
 # 2. Fit + score one config

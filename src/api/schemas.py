@@ -117,11 +117,16 @@ class ProcessedRecord(BaseModel):
 
 
 class ForecastRecord(BaseModel):
-    ds: str
+    horizon: int
+    last_train: date
+    date_index: date
+    code_bss: str
+    bss_id: str
     yhat: float
     yhat_lower: float
     yhat_upper: float
-
+    id: Optional[int] = None
+    inserted_at: Optional[datetime] = None
 
 class StationResponse(BaseModel):
     status: str
@@ -145,7 +150,7 @@ class ForecastResponse(BaseModel):
     status: str
     n_rows: int
     horizon : int
-    last_train: str
+    last_train: date
     data: List[ForecastRecord]
 
 

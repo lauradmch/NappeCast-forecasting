@@ -190,20 +190,11 @@ def read_station_rds(code_bss: str) -> pd.DataFrame:
     end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
     engine = create_engine(db_uri)
-
-    query = text("""
-        SELECT *
-        FROM 
-            station
-        WHERE 
-            code_bss = :code_bss
-    """)
-
+    query = text("SELECT * FROM station WHERE code_bss = :code_bss")
     with engine.connect() as conn:
         df = pd.read_sql(query, conn, params={"code_bss": code_bss})
 
     return df.copy()
-
 
 def read_processed_rds(code_bss: str, end_date: date) -> pd.DataFrame:
     """
@@ -212,22 +203,18 @@ def read_processed_rds(code_bss: str, end_date: date) -> pd.DataFrame:
     """
     end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
-    engine = create_engine(db_uri)
-
+    engine = create_engine(db_uri)    
     query = text("""
         SELECT *
-        FROM 
-            processed
-        WHERE 
-            date_index < :end_date
-            AND code_bss = :code_bss
+        FROM processed
+        WHERE code_bss = :code_bss
+          AND date_index <= :end_date
+        ORDER BY date_index
     """)
-
     with engine.connect() as conn:
         df = pd.read_sql(query, conn, params={"end_date": end_date, "code_bss": code_bss})
 
     return df.copy()
-
 
 def read_forecast_rds(code_bss: str, horizon: Literal[14, 30], start_date: date) -> pd.DataFrame:
     """
@@ -238,17 +225,14 @@ def read_forecast_rds(code_bss: str, horizon: Literal[14, 30], start_date: date)
     end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
     engine = create_engine(db_uri)
-
     query = text("""
         SELECT *
-        FROM 
-            forecast
-        WHERE 
-            date_index >= :start_date
-            AND code_bss = :code_bss
-            horizon = :horizon
+        FROM forecast
+        WHERE code_bss = :code_bss
+          AND horizon = :horizon
+          AND date_index >= :start_date
+        ORDER BY last_train, date_index
     """)
-
     with engine.connect() as conn:
         df = pd.read_sql(query, conn, params={"horizon": horizon, "code_bss": code_bss, "start_date": start_date})
 
@@ -309,14 +293,14 @@ def load_station_to_rds() -> dict:
                            "station")
 
 
-def load_forecast_to_rds() -> dict:
+def load_forecast_to_rds(H: int) -> dict:
     s3 = boto3.client("s3")
-    filename = str(Path(CONFIG["paths"]["data"]["forecast"])/f"{CONFIG['paths']['data']['forecast_filename']}.csv")
+    filename = str(Path(CONFIG["paths"]["data"]["forecast"]) / f"{CONFIG['paths']['forecast_filename']}_H{H}.csv")
     sql_path = Path(__file__).parent.parent / "sql" / "create_table_forecast.sql"
 
-    return load_csv_to_rds(s3, 
-                           CONFIG["s3"]["bucket"], 
-                           filename, 
+    return load_csv_to_rds(s3,
+                           CONFIG["s3"]["bucket"],
+                           filename,
                            sql_path,
                            ["code_bss", "date_index", "horizon", "last_train"],
                            "forecast")
@@ -333,7 +317,6 @@ def load_processed_to_rds() -> dict:
                            sql_path,
                            ["code_bss","date_index"],
                            "processed")
-
 
 
    

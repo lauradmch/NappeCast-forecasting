@@ -33,13 +33,14 @@ import os
 from mlflow import MlflowClient
 from pathlib import Path
 from src.config import load_config, mlflow_tracking_uri
-from src.models.prophet import build_train_frame, build_future_frame, plot_forecast, TARGET
 from src.api.model_loader import load_model
 from src.helper.aws import save_forecast_data_to_s3
 
+from src.models.prophet import build_train_frame, build_future_frame, build_daily, plot_forecast, TARGET
+from src.helper.data import station_identity
 from src.models.prophet_tune import (
-    BASE_PARAMS, PARAM_GRID, EXPERIMENT_NAME, 
-    load_daily, fit_prophet, score_config, select_score, rescore_params,
+    BASE_PARAMS, PARAM_GRID, EXPERIMENT_NAME,
+    load_daily, load_dataset, fit_prophet, score_config, select_score, rescore_params,
 )
 from src.models.production import (
     PRODUCTION_ALIAS, get_version_by_alias, get_run_params,
@@ -92,27 +93,40 @@ def resolve_tuned_params(args) -> tuple[dict, str]:
 # ---------------------------------------------------------------------------
 # predict
 # ---------------------------------------------------------------------------
-def predict (H: int, save_csv: bool = False) -> tuple[dict, str]:
-    daily = load_daily()
+def predict(H: int, save_csv: bool = False) -> tuple[str, pd.DataFrame]:
+    dataset = load_dataset()
+    daily = build_daily(dataset)
+    code_bss, bss_id = station_identity(dataset)
     future, _ = build_future_frame(daily, H)
 
     try:
-        model = load_model(model='Prophet', horizon=H)
+        model = load_model(model="Prophet", horizon=H)
     except Exception as e:
-        raise Exception(status_code=503, detail=f"Model unavailable: {e}")
+        raise RuntimeError(f"Model unavailable: {e}")
 
-    # forecast
     try:
         forecast = model.predict(future)
     except Exception as e:
-        raise Exception(status_code=422, detail=f"Prediction failed: {e}")
+        raise RuntimeError(f"Prediction failed: {e}")
 
     last_train = daily[daily[TARGET].notna()].index.max().strftime("%Y-%m-%d")
     forecast["ds"] = forecast["ds"].dt.strftime("%Y-%m-%d")
-    forecast = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+
+    forecast = (
+        forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+        .rename(columns={"ds": "date_index"})
+        .assign(horizon=H, last_train=last_train, code_bss=code_bss, bss_id=bss_id)
+        [["horizon", "last_train", "date_index", "code_bss", "bss_id",
+          "yhat", "yhat_lower", "yhat_upper"]]
+    )
 
     if save_csv:
-        save_forecast_data_to_s3(forecast, Path(CONFIG["paths"]["data"]["forecast"]), CONFIG["paths"]["forecast_filename"], False)
+        save_forecast_data_to_s3(
+            forecast,
+            Path(CONFIG["paths"]["data"]["forecast"]),
+            f"{CONFIG['paths']['forecast_filename']}_H{H}",
+            False,
+        )
 
     return last_train, forecast
     
