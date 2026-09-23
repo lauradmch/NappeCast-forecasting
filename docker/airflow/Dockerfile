@@ -9,9 +9,10 @@ USER airflow
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir \
+RUN PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")') && \
+    pip install --no-cache-dir \
       "apache-airflow==${AIRFLOW_VERSION}" \
       -r requirements.txt \
-      --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_MAJOR_MINOR_VERSION}.txt"
+      --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 
 ENV PYTHONPATH=/opt/airflow
