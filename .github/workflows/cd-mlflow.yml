@@ -52,6 +52,14 @@ jobs:
         run: |
           sed -i "s|image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/mlflow:.*|image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/mlflow:${{ github.sha }}|" docker/mlflow/docker-compose.yml
 
+      - name: Ouvrir SSH pour ce runner
+        id: ip
+        run: |
+          IP=$(curl -s https://checkip.amazonaws.com)
+          echo "ip=$IP" >> "$GITHUB_OUTPUT"
+          aws ec2 authorize-security-group-ingress --group-id ${{ secrets.MLFLOW_SG_ID }} \
+            --protocol tcp --port 22 --cidr "$IP/32"
+
       - name: Copier docker-compose.yml et deploy.sh sur l'EC2 MLflow (SCP, aucun secret applicatif)
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -76,3 +84,9 @@ jobs:
             sudo chmod +x /opt/mlflow/deploy.sh
             sudo chown appuser:appuser /opt/mlflow/deploy.sh
             sudo /opt/mlflow/deploy.sh
+
+      - name: Refermer SSH
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress --group-id ${{ secrets.MLFLOW_SG_ID }} \
+            --protocol tcp --port 22 --cidr "${{ steps.ip.outputs.ip }}/32"
