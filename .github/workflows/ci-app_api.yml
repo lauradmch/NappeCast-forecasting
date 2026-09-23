@@ -34,6 +34,11 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+    needs: test
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
