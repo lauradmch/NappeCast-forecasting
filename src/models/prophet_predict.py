@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 import mlflow
 import mlflow.prophet
 import os
+import pandas as pd
 
 from mlflow import MlflowClient
 from pathlib import Path
