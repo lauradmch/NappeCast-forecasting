@@ -1,0 +1,111 @@
+name: cd-airflow
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docker/airflow/**'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::844099234486:role/github-actions-deploy-airflow
+          aws-region: eu-west-3
+
+      - name: Login ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: L'image existe-t-elle déjà ?
+        id: img
+        run: |
+          if aws ecr describe-images --repository-name airflow \
+               --image-ids imageTag=${{ github.sha }} >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.img.outputs.exists == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build et push de l'image
+        if: steps.img.outputs.exists == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker/airflow
+          push: true
+          tags: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/airflow:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Rendre le docker-compose.yml avec le tag de cette build
+        run: |
+          sed -i "s|image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/airflow:.*|image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/airflow:${{ github.sha }}|" docker/airflow/docker-compose.yml
+          grep -q "airflow:${{ github.sha }}" docker/airflow/docker-compose.yml \
+            || { echo "::error::Le tag n'a pas été injecté dans docker-compose.yml"; exit 1; }
+
+      - name: IP publique du runner
+        id: ip
+        run: |
+          IP=$(curl -sf https://checkip.amazonaws.com | tr -d '[:space:]')
+          test -n "$IP" || { echo "::error::Impossible de récupérer l'IP du runner"; exit 1; }
+          echo "ip=$IP" >> "$GITHUB_OUTPUT"
+
+      - name: Ouvrir SSH pour ce runner
+        id: open_ssh
+        env:
+          SG_ID: ${{ secrets.AIRFLOW_SG_ID }}
+          RUNNER_IP: ${{ steps.ip.outputs.ip }}
+        run: |
+          test -n "$SG_ID" || { echo "::error::AIRFLOW_SG_ID non défini"; exit 1; }
+          aws ec2 authorize-security-group-ingress --group-id "$SG_ID" \
+            --protocol tcp --port 22 --cidr "$RUNNER_IP/32"
+
+      - name: Copier docker-compose.yml, .env et deploy.sh sur l'EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AIRFLOW_EC2_HOST }}
+          username: ${{ secrets.AIRFLOW_EC2_USER }}
+          key: ${{ secrets.AIRFLOW_EC2_SSH_KEY }}
+          source: "docker/airflow/docker-compose.yml,docker/airflow/.env,docker/airflow/deploy.sh"
+          strip_components: 2
+          target: /tmp/airflow-deploy
+
+      - name: Déploiement
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.AIRFLOW_EC2_HOST }}
+          username: ${{ secrets.AIRFLOW_EC2_USER }}
+          key: ${{ secrets.AIRFLOW_EC2_SSH_KEY }}
+          script: |
+            set -e
+            sudo mkdir -p /opt/airflow
+            sudo mv /tmp/airflow-deploy/docker-compose.yml /opt/airflow/docker-compose.yml
+            sudo mv /tmp/airflow-deploy/.env               /opt/airflow/.env
+            sudo mv /tmp/airflow-deploy/deploy.sh           /opt/airflow/deploy.sh
+            sudo chown appuser:appuser /opt/airflow/docker-compose.yml /opt/airflow/.env /opt/airflow/deploy.sh
+            sudo chmod +x /opt/airflow/deploy.sh
+            sudo /opt/airflow/deploy.sh
+            rm -rf /tmp/airflow-deploy
+
+      - name: Refermer SSH
+        if: always() && steps.open_ssh.outcome == 'success'
+        env:
+          SG_ID: ${{ secrets.AIRFLOW_SG_ID }}
+          RUNNER_IP: ${{ steps.ip.outputs.ip }}
+        run: |
+          aws ec2 revoke-security-group-ingress --group-id "$SG_ID" \
+            --protocol tcp --port 22 --cidr "$RUNNER_IP/32"

@@ -23,14 +23,14 @@
 x-airflow-common:
   &airflow-common
   image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/airflow:latest
-  env_file: [.env, .env.runtime]
+  env_file: [airflow.env, .env.runtime]
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'    
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -58,9 +58,9 @@ x-airflow-common:
 services:
   postgres:
     image: postgres:16
-    env_file: [.env, .env.runtime]
+    env_file: [airflow.env, .env.runtime]
     environment:
-      POSTGRES_DB: airflow_db
+      POSTGRES_DB: airflow
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
@@ -74,12 +74,12 @@ services:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
     image: redis:7.2-bookworm
-    command: ["sh", "-c", "exec redis-server --requirepass \"$REDIS_PASSWORD\""]
-    env_file: [.env, .env.runtime]
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\""]
+    env_file: [airflow.env, .env.runtime]
     expose:
       - 6379
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
       interval: 10s
       timeout: 30s
       retries: 50
@@ -256,7 +256,7 @@ services:
         ls -la /opt/airflow/{logs,dags,plugins,config}
 
     # yamllint enable rule:line-length
-    env_file: [.env, .env.runtime]
+    env_file: [airflow.env, .env.runtime]
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: 'true'
@@ -323,27 +323,27 @@ services:
       - |
         echo "Demarrage de la synchronisation S3 (bucket: ${S3_BUCKET})"
         while true; do
-          ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ts="$$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
           # dags : PULL S3 -> EC2 (S3 fait autorite)
           if aws s3 sync "s3://${S3_BUCKET}/${DAGS_S3_PREFIX}" /opt/airflow/dags --delete; then
-            echo "[$ts] dags  : pull S3 -> EC2 OK"
+            echo "[$$ts] dags  : pull S3 -> EC2 OK"
           else
-            echo "[$ts] dags  : ERREUR pull S3 -> EC2"
+            echo "[$$ts] dags  : ERREUR pull S3 -> EC2"
           fi
 
           # data : PUSH EC2 -> S3 (sauvegarde, pas de --delete)
           if aws s3 sync /opt/airflow/data "s3://${S3_BUCKET}/${DATA_S3_PREFIX}"; then
-            echo "[$ts] data  : push EC2 -> S3 OK"
+            echo "[$$ts] data  : push EC2 -> S3 OK"
           else
-            echo "[$ts] data  : ERREUR push EC2 -> S3"
+            echo "[$$ts] data  : ERREUR push EC2 -> S3"
           fi
 
           # logs : PUSH EC2 -> S3 (sauvegarde, pas de --delete)
           if aws s3 sync /opt/airflow/logs "s3://${S3_BUCKET}/${LOGS_S3_PREFIX}"; then
-            echo "[$ts] logs  : push EC2 -> S3 OK"
+            echo "[$$ts] logs  : push EC2 -> S3 OK"
           else
-            echo "[$ts] logs  : ERREUR push EC2 -> S3"
+            echo "[$$ts] logs  : ERREUR push EC2 -> S3"
           fi
 
           sleep "${SYNC_INTERVAL_SECONDS}"
