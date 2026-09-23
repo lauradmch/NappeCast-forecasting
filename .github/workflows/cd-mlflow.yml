@@ -21,11 +21,14 @@ jobs:
       - name: Auth AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::844099234486:role/github-actions-deploy-mlflow
+          role-to-assume: arn:aws:iam::844099234486:role/github-actions-deploy
           aws-region: eu-west-3
 
       - name: Login ECR
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build et push de l'image
         uses: docker/build-push-action@v6
@@ -46,9 +49,9 @@ jobs:
           host: ${{ secrets.MLFLOW_EC2_HOST }}
           username: ${{ secrets.MLFLOW_EC2_USER }}
           key: ${{ secrets.MLFLOW_EC2_SSH_KEY }}
-          source: "docker/mlflow/docker-compose.yml,docker/mlflow/deploy.sh"
+          source: "docker/mlflow/docker-compose.yml,docker/mlflow/.env,docker/mlflow/deploy.sh"
           strip_components: 2
-          target: "~"
+          target: /home/appuser
 
       - name: Déploiement (SSH, aucun secret transmis)
         uses: appleboy/ssh-action@v1
@@ -57,8 +60,10 @@ jobs:
           username: ${{ secrets.MLFLOW_EC2_USER }}
           key: ${{ secrets.MLFLOW_EC2_SSH_KEY }}
           script: |
-            sudo mv ~/docker-compose.yml /opt/mlflow/docker-compose.yml
-            sudo mv ~/deploy.sh /opt/mlflow/deploy.sh
+            set -e
+            mv /home/appuser/docker-compose.yml /opt/mlflow/docker-compose.yml
+            mv /home/appuser/deploy.sh /opt/mlflow/deploy.sh
+            mv /home/appuser/.env /opt/mlflow/.env
             sudo chmod +x /opt/mlflow/deploy.sh
             sudo chown appuser:appuser /opt/mlflow/deploy.sh
             sudo /opt/mlflow/deploy.sh
