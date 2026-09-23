@@ -2,6 +2,7 @@ services:
   caddy:
     image: caddy:2
     container_name: caddy
+    env_file: [appapi.env, .env.runtime]
     ports:
       - "80:80"
       - "443:443"
@@ -13,9 +14,8 @@ services:
     restart: unless-stopped
 
   streamlit:
-    build:
-      context: ../..
-      dockerfile: src/app/Dockerfile
+    image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/streamlit:latest
+    env_file: [appapi.env, .env.runtime]
     expose:
       - "8501"
     environment:
@@ -25,7 +25,8 @@ services:
     restart: unless-stopped
 
   api:
-    image: adriencosson/nappecast-api:latest
+    image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/appapi:latest
+    env_file: [appapi.env, .env.runtime]
     volumes:
       - ./logs:/home/app/logs
     environment:
