@@ -21,7 +21,7 @@ jobs:
       - name: Auth AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::844099234486:role/github-actions-deploy-airflow
+          role-to-assume: arn:aws:iam::844099234486:role/github-actions-deploy
           aws-region: eu-west-3
 
       - name: Login ECR
