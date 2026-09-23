@@ -64,9 +64,9 @@ jobs:
       - name: Deploy to EC2_APP
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.EC2_APP_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.APP_EC2_HOST }}
+          username: ${{ secrets.APP_EC2_USER }}
+          key: ${{ secrets.APP_EC2_SSH_KEY }}
           script: |
             cd /home/ec2-user/app/docker/app-api  # chemin du repo sur l'EC2 AWS
             docker compose pull                   # récupération de la nouvelle image buildé depuis DockerHub
