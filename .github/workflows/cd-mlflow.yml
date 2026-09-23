@@ -18,15 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Debug OIDC claims
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const t = await core.getIDToken('sts.amazonaws.com');
-            const p = JSON.parse(Buffer.from(t.split('.')[1], 'base64url'));
-            core.info(`sub=${p.sub}`);
-            core.info(`aud=${p.aud}`);
-
       - name: Auth AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -51,14 +42,15 @@ jobs:
       - name: Rendre le docker-compose.yml avec le tag de cette build
         run: |
           sed -i "s|image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/mlflow:.*|image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/mlflow:${{ github.sha }}|" docker/mlflow/docker-compose.yml
+      
+      - name: IP publique du runner
+        id: ip
+        run: echo "ip=$(curl -s https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"
 
       - name: Ouvrir SSH pour ce runner
-        id: ip
         run: |
-          IP=$(curl -s https://checkip.amazonaws.com)
-          echo "ip=$IP" >> "$GITHUB_OUTPUT"
           aws ec2 authorize-security-group-ingress --group-id ${{ secrets.MLFLOW_SG_ID }} \
-            --protocol tcp --port 22 --cidr "$IP/32"
+            --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ip }}/32
 
       - name: Copier docker-compose.yml et deploy.sh sur l'EC2 MLflow (SCP, aucun secret applicatif)
         uses: appleboy/scp-action@v0.1.7
@@ -89,4 +81,4 @@ jobs:
         if: always()
         run: |
           aws ec2 revoke-security-group-ingress --group-id ${{ secrets.MLFLOW_SG_ID }} \
-            --protocol tcp --port 22 --cidr "${{ steps.ip.outputs.ip }}/32"
+            --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ip }}/32
