@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_DIR=/opt/mlflow
 ENV_FILE="$APP_DIR/.env.runtime"
-SECRET_ID="mlflow/prod3"
+SECRET_ID="mlflow/prod-lastest"
 REGION="eu-west-3"
 ECR_REGISTRY="844099234486.dkr.ecr.eu-west-3.amazonaws.com"
 
