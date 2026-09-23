@@ -18,13 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Vérifier les fichiers de déploiement
-        run: |
-          ls -la docker/mlflow/
-          for f in docker-compose.yml mlflow.env deploy.sh; do
-            test -f "docker/mlflow/$f" || { echo "::error::docker/mlflow/$f absent du commit ${{ github.sha }}"; exit 1; }
-          done
-
       - name: Auth AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -81,43 +74,32 @@ jobs:
           aws ec2 authorize-security-group-ingress --group-id "$SG_ID" \
             --protocol tcp --port 22 --cidr "$RUNNER_IP/32"
 
-      - name: Préparer la clé SSH
-        env:
-          SSH_KEY: ${{ secrets.MLFLOW_EC2_SSH_KEY }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-      - name: Copier les fichiers sur l'EC2
-        env:
-          HOST: ${{ secrets.MLFLOW_EC2_HOST }}
-          USER: ${{ secrets.MLFLOW_EC2_USER }}
-        run: |
-          set -e
-          OPTS="-i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
-          ssh $OPTS "$USER@$HOST" 'rm -rf /tmp/mlflow-deploy && mkdir -p /tmp/mlflow-deploy'
-          scp $OPTS docker/mlflow/docker-compose.yml docker/mlflow/mlflow.env docker/mlflow/deploy.sh \
-              "$USER@$HOST:/tmp/mlflow-deploy/"
-          ssh $OPTS "$USER@$HOST" 'ls -la /tmp/mlflow-deploy'
+      - name: Copier docker-compose.yml, .env et deploy.sh sur l'EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.MLFLOW_EC2_HOST }}
+          username: ${{ secrets.MLFLOW_EC2_USER }}
+          key: ${{ secrets.MLFLOW_EC2_SSH_KEY }}
+          source: "docker/mlflow/docker-compose.yml,docker/mlflow/mlflow.env,docker/mlflow/deploy.sh"
+          strip_components: 2
+          target: /tmp/mlflow-deploy
 
       - name: Déploiement
-        env:
-          HOST: ${{ secrets.MLFLOW_EC2_HOST }}
-          USER: ${{ secrets.MLFLOW_EC2_USER }}
-        run: |
-          ssh -i "$HOME/.ssh/deploy_key" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
-              "$USER@$HOST" 'bash -s' <<'EOF'
-          set -e
-          sudo mkdir -p /opt/mlflow
-          sudo mv /tmp/mlflow-deploy/docker-compose.yml /opt/mlflow/docker-compose.yml
-          sudo mv /tmp/mlflow-deploy/mlflow.env         /opt/mlflow/mlflow.env
-          sudo mv /tmp/mlflow-deploy/deploy.sh          /opt/mlflow/deploy.sh
-          sudo chown appuser:appuser /opt/mlflow/docker-compose.yml /opt/mlflow/mlflow.env /opt/mlflow/deploy.sh
-          sudo chmod +x /opt/mlflow/deploy.sh
-          sudo /opt/mlflow/deploy.sh
-          rm -rf /tmp/mlflow-deploy
-          EOF
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.MLFLOW_EC2_HOST }}
+          username: ${{ secrets.MLFLOW_EC2_USER }}
+          key: ${{ secrets.MLFLOW_EC2_SSH_KEY }}
+          script: |
+            set -e
+            sudo mkdir -p /opt/mlflow
+            sudo mv /tmp/mlflow-deploy/docker-compose.yml /opt/mlflow/docker-compose.yml
+            sudo mv /tmp/mlflow-deploy/mlflow.env         /opt/mlflow/mlflow.env
+            sudo mv /tmp/mlflow-deploy/deploy.sh          /opt/mlflow/deploy.sh
+            sudo chown appuser:appuser /opt/mlflow/docker-compose.yml /opt/mlflow/mlflow.env /opt/mlflow/deploy.sh
+            sudo chmod +x /opt/mlflow/deploy.sh
+            sudo /opt/mlflow/deploy.sh
+            rm -rf /tmp/mlflow-deploy
 
       - name: Refermer SSH
         if: always() && steps.open_ssh.outcome == 'success'
@@ -127,7 +109,3 @@ jobs:
         run: |
           aws ec2 revoke-security-group-ingress --group-id "$SG_ID" \
             --protocol tcp --port 22 --cidr "$RUNNER_IP/32"
-
-      - name: Supprimer la clé SSH du runner
-        if: always()
-        run: rm -f ~/.ssh/deploy_key
