@@ -301,44 +301,43 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  airflow-s3-sync:
+    image: amazon/aws-cli:2.17.62
+    container_name: airflow-s3-sync
+    restart: always
+    env_file: [airflow.env, .env.runtime]
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+    user: "${AIRFLOW_UID:-50000}:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+    - |
+      echo "Demarrage de la synchronisation S3 (bucket: $$S3_BUCKET)"
+      while true; do
+        ts="$$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-    airflow-s3-sync:
-      image: amazon/aws-cli:2.17.62
-      container_name: airflow-s3-sync
-      restart: always
-      env_file: [airflow.env, .env.runtime]
-      volumes:
-        - ./dags:/opt/airflow/dags
-        - ./data:/opt/airflow/data
-        - ./logs:/opt/airflow/logs
-      user: "${AIRFLOW_UID:-50000}:0"
-      entrypoint: ["/bin/sh", "-c"]
-      command:
-      - |
-        echo "Demarrage de la synchronisation S3 (bucket: $$S3_BUCKET)"
-        while true; do
-          ts="$$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        if aws s3 sync "s3://$$S3_BUCKET/$${DAGS_S3_PREFIX:-dags}" /opt/airflow/dags --delete; then
+          echo "[$$ts] dags  : pull S3 -> EC2 OK"
+        else
+          echo "[$$ts] dags  : ERREUR pull S3 -> EC2"
+        fi
 
-          if aws s3 sync "s3://$$S3_BUCKET/$${DAGS_S3_PREFIX:-dags}" /opt/airflow/dags --delete; then
-            echo "[$$ts] dags  : pull S3 -> EC2 OK"
-          else
-            echo "[$$ts] dags  : ERREUR pull S3 -> EC2"
-          fi
+        if aws s3 sync /opt/airflow/data "s3://$$S3_BUCKET/$${DATA_S3_PREFIX:-data}"; then
+          echo "[$$ts] data  : push EC2 -> S3 OK"
+        else
+          echo "[$$ts] data  : ERREUR push EC2 -> S3"
+        fi
 
-          if aws s3 sync /opt/airflow/data "s3://$$S3_BUCKET/$${DATA_S3_PREFIX:-data}"; then
-            echo "[$$ts] data  : push EC2 -> S3 OK"
-          else
-            echo "[$$ts] data  : ERREUR push EC2 -> S3"
-          fi
+        if aws s3 sync /opt/airflow/logs "s3://$$S3_BUCKET/$${LOGS_S3_PREFIX:-logs}"; then
+          echo "[$$ts] logs  : push EC2 -> S3 OK"
+        else
+          echo "[$$ts] logs  : ERREUR push EC2 -> S3"
+        fi
 
-          if aws s3 sync /opt/airflow/logs "s3://$$S3_BUCKET/$${LOGS_S3_PREFIX:-logs}"; then
-            echo "[$$ts] logs  : push EC2 -> S3 OK"
-          else
-            echo "[$$ts] logs  : ERREUR push EC2 -> S3"
-          fi
-
-          sleep "$${SYNC_INTERVAL_SECONDS:-60}"
-        done
+        sleep "$${SYNC_INTERVAL_SECONDS:-60}"
+      done
 
 volumes:
   postgres-db-volume:
