@@ -1,5 +1,7 @@
-pandas==2.3.3
+apache-airflow-providers-postgres
+apache-airflow-providers-amazon
+
+pandas
 requests==2.34.2
 pyyaml
 python-dotenv
-
