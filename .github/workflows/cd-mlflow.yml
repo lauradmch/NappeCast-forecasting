@@ -54,17 +54,27 @@ jobs:
       - name: Rendre le docker-compose.yml avec le tag de cette build
         run: |
           sed -i "s|image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/mlflow:.*|image: 844099234486.dkr.ecr.eu-west-3.amazonaws.com/mlflow:${{ github.sha }}|" docker/mlflow/docker-compose.yml
-      
+          grep -q "mlflow:${{ github.sha }}" docker/mlflow/docker-compose.yml \
+            || { echo "::error::Le tag n'a pas été injecté dans docker-compose.yml"; exit 1; }
+
       - name: IP publique du runner
         id: ip
-        run: echo "ip=$(curl -s https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"
+        run: |
+          IP=$(curl -sf https://checkip.amazonaws.com | tr -d '[:space:]')
+          test -n "$IP" || { echo "::error::Impossible de récupérer l'IP du runner"; exit 1; }
+          echo "ip=$IP" >> "$GITHUB_OUTPUT"
 
       - name: Ouvrir SSH pour ce runner
+        id: open_ssh
+        env:
+          SG_ID: ${{ secrets.MLFLOW_SG_ID }}
+          RUNNER_IP: ${{ steps.ip.outputs.ip }}
         run: |
-          aws ec2 authorize-security-group-ingress --group-id ${{ secrets.MLFLOW_SG_ID }} \
-            --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ip }}/32
+          test -n "$SG_ID" || { echo "::error::MLFLOW_SG_ID non défini"; exit 1; }
+          aws ec2 authorize-security-group-ingress --group-id "$SG_ID" \
+            --protocol tcp --port 22 --cidr "$RUNNER_IP/32"
 
-            - name: Copier docker-compose.yml, .env et deploy.sh sur l'EC2
+      - name: Copier docker-compose.yml, .env et deploy.sh sur l'EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.MLFLOW_EC2_HOST }}
@@ -74,7 +84,7 @@ jobs:
           strip_components: 2
           target: /tmp/mlflow-deploy
 
-            - name: Déploiement
+      - name: Déploiement
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.MLFLOW_EC2_HOST }}
@@ -82,6 +92,7 @@ jobs:
           key: ${{ secrets.MLFLOW_EC2_SSH_KEY }}
           script: |
             set -e
+            sudo mkdir -p /opt/mlflow
             sudo mv /tmp/mlflow-deploy/docker-compose.yml /opt/mlflow/docker-compose.yml
             sudo mv /tmp/mlflow-deploy/.env               /opt/mlflow/.env
             sudo mv /tmp/mlflow-deploy/deploy.sh          /opt/mlflow/deploy.sh
@@ -92,7 +103,10 @@ jobs:
             rm -rf /tmp/mlflow-deploy
 
       - name: Refermer SSH
-        if: always()
+        if: always() && steps.open_ssh.outcome == 'success'
+        env:
+          SG_ID: ${{ secrets.MLFLOW_SG_ID }}
+          RUNNER_IP: ${{ steps.ip.outputs.ip }}
         run: |
-          aws ec2 revoke-security-group-ingress --group-id ${{ secrets.MLFLOW_SG_ID }} \
-            --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ip }}/32
+          aws ec2 revoke-security-group-ingress --group-id "$SG_ID" \
+            --protocol tcp --port 22 --cidr "$RUNNER_IP/32"
