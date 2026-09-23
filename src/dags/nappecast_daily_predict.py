@@ -31,8 +31,6 @@ from airflow.decorators import dag, task
 from airflow.exceptions import AirflowException
 from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 from src.api.main import forecast
 from __future__ import annotations
