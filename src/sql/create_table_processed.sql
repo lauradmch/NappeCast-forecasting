@@ -42,11 +42,11 @@ CREATE TABLE IF NOT EXISTS processed (
 );
 
 CREATE INDEX IF NOT EXISTS idx_processed_code_bss
-    ON spli_historic (code_bss);
+    ON processed (code_bss);
 
 CREATE INDEX IF NOT EXISTS idx_processed_inserted_at
-    ON spli_historic (inserted_at);
+    ON processed (inserted_at);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_processed_bss_date_run
-    ON spli_historic (code_bss, date_index);
+    ON processed (code_bss, date_index);
 
