@@ -36,7 +36,7 @@ def _extend_and_shift(daily: pd.DataFrame, H: int) -> tuple[pd.DataFrame, list[s
         df_ext[f"{col}_lag{H}"] = df_ext[col].shift(H)
     regressor_cols = [f"{col}_lag{H}" for col in DAILY_FEATURES]
 
-    df_all = pd.DataFrame({"ds": df_ext.index, "y": df_ext[TARGET].values})
+    df_all = pd.DataFrame({"date_index": df_ext.index, "y": df_ext[TARGET].values})
     for col in regressor_cols:
         df_all[col] = df_ext[col].values
 
@@ -112,28 +112,28 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int,
     Plotly version of fig2 (prophet_predict.py): recent observed history,
     +H day forecast and uncertainty band (interval_width = model.interval_width).
     """
-    last_train = df_prophet["ds"].max()
-    fut = forecast[forecast["ds"] > last_train]
+    last_train = df_prophet["date_index"].max()
+    fut = forecast[forecast["date_index"] > last_train]
     min_date = pd.Timestamp("2026-01-01")
     hist = forecast[
-        (forecast["ds"] <= last_train) &
-        (forecast["ds"] >= min_date)
-    ][["ds", "yhat"]]
+        (forecast["date_index"] <= last_train) &
+        (forecast["date_index"] >= min_date)
+    ][["date_index", "yhat"]]
 
     # Recent observed history only
     recent_cut = last_train - pd.Timedelta(days=HISTORY_DAYS)
-    obs = df_prophet[df_prophet["ds"] >= recent_cut]
+    obs = df_prophet[df_prophet["date_index"] >= recent_cut]
 
     fig = go.Figure()
 
     # --- Uncertainty band: upper bound (invisible) then filled lower bound
     fig.add_trace(go.Scatter(
-        x=fut["ds"], y=fut["yhat_upper"],
+        x=fut["date_index"], y=fut["yhat_upper"],
         mode="lines", line=dict(width=0),
         showlegend=False, hoverinfo="skip",
     ))
     fig.add_trace(go.Scatter(
-        x=fut["ds"], y=fut["yhat_lower"],
+        x=fut["date_index"], y=fut["yhat_lower"],
         mode="lines", line=dict(width=0),
         fill="tonexty", fillcolor="rgba(214,39,40,0.18)",
         name=f"{interval_width:.0%} interval",
@@ -141,20 +141,20 @@ def plot_forecast(df_prophet: pd.DataFrame, forecast: pd.DataFrame, H: int,
 
     # --- Forecast (+H days)
     fig.add_trace(go.Scatter(
-        x=fut["ds"], y=fut["yhat"],
+        x=fut["date_index"], y=fut["yhat"],
         mode="lines", line=dict(color="#d62728", width=3),
         name=f"Forecast (+{H}d)",
     ))
 
     # --- Recent observed (ground truth)
     fig.add_trace(go.Scatter(
-        x=obs["ds"], y=obs["y"],
+        x=obs["date_index"], y=obs["y"],
         mode="markers", marker=dict(color="#0f5792", size=5),
         name="Observed",
     ))
     # --- Prediction on history
     fig.add_trace(go.Scatter(
-        x=hist["ds"], y=hist["yhat"],
+        x=hist["date_index"], y=hist["yhat"],
         mode="markers", marker=dict(color="#b83333", size=4),
         name=f"Prediction",
     ))
