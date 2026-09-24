@@ -13,19 +13,19 @@ DATE_COL: Final = "date_index"
 STATION_COL: Final = "code_bss"
 
 # ---------------------------- INDICES STANDARDISÉS ----------------------------
-SPLI_COL: Final = "SPLI"
+SPLI_COL: Final = "spli"
 DRIVER_LABELS: Final[dict[str, str]] = {  # driver index columns -> human labels
-    "SPI":  "Precipitation (SPI)",
-    "SETI": "Evapotranspiration (SETI)",
-    "SSTI": "Soil temperature (SSTI)",
-    "SSRI": "Shortwave radiation (SSRI)",
-    "SWSI": "Wind speed (SWSI)",
-    "SCCI": "Cloud cover (SCCI)",
-    "SPMI": "Sea-level pressure (SPMI)",
-    "SPEI": "Water balance (SPEI)",
-    "SSMI": "Soil moisture (SSMI)",
+    "spi":  "Precipitation (SPI)",
+    "seti": "Evapotranspiration (SETI)",
+    "ssti": "Soil temperature (SSTI)",
+    "ssri": "Shortwave radiation (SSRI)",
+    "swsi": "Wind speed (SWSI)",
+    "scci": "Cloud cover (SCCI)",
+    "spmi": "Sea-level pressure (SPMI)",
+    "spei": "Water balance (SPEI)",
+    "ssmi": "Soil moisture (SSMI)",
 }
-DEFAULT_DRIVERS: Final = ("SPI", "SPEI", "SSMI")
+DEFAULT_DRIVERS: Final = ("spi", "spei", "ssmi")
 
 # ---------------------------- SPLI : SEUILS ----------------------------
 MIN_FORECAST_DAYS: Final = 14 # forecast-only months need MORE than this many days in forecast_spli
