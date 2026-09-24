@@ -146,41 +146,43 @@ def get_hubeau(first_url: str, params: str) -> pd.DataFrame:
 
 
 def fetch_weather_by_year(code_bss: str,
-                           lng: str,
-                           lat: str,
-                           start_date: str,    
-                           end_date: str,
-                           failed_calls: list[dict],
-						   save_file: bool = True) -> pd.DataFrame:
-    
-    start   = pd.to_datetime(start_date)
-    end     = pd.to_datetime(end_date)
-    frame   = []
+                          lng: str,
+                          lat: str,
+                          start_date: str,
+                          end_date: str,
+                          failed_calls: list[dict],
+                          save_file: bool = True) -> pd.DataFrame:
+
+    start = pd.to_datetime(start_date)
+    end   = pd.to_datetime(end_date)
+    if start > end:
+        start = end
+
+    external_dir = Path(CONFIG["paths"]["data"]["external"])
+    if save_file:
+        external_dir.mkdir(parents=True, exist_ok=True)
+
+    frames = []
 
     for year in range(start.year, end.year + 1):
-        year_start = max(start, pd.Timestamp(year=year, month=1, day=1))
-        year_end = min(end, pd.Timestamp(year=year, month=12, day=31))
+        year_start    = max(start, pd.Timestamp(year=year, month=1, day=1))
+        year_end      = min(end, pd.Timestamp(year=year, month=12, day=31))
         current_start = year_start.strftime("%Y-%m-%d")
-        current_end = year_end.strftime("%Y-%m-%d")
+        current_end   = year_end.strftime("%Y-%m-%d")
 
         try:
-            df_year = get_weather(
-                lng,
-                lat,
-                current_start,
-                current_end
-            )
+            df_year = get_weather(lng, lat, current_start, current_end)
             df_year["code_bss"] = code_bss
 
-            if save_file == True: 
-                df_year.to_csv(Path(CONFIG["paths"]["data"]["external"] / "meteo_{code_bss.replace('/','')}_{pd.to_datetime(year_start).year}.csv"))
+            if save_file:
+                filename = f"meteo_{code_bss.replace('/', '')}_{year}.csv"
+                df_year.to_csv(external_dir / filename, index=False)
 
-            frame.append(df_year)
+            frames.append(df_year)
             time.sleep(5)
 
         except Exception as e:
-            logger.warning(f"Erreur station {code_bss}, année {year}: {e}")
-
+            logger.warning("Erreur station %s, année %s : %s", code_bss, year, e)
             failed_calls.append({
                 "code_bss": code_bss,
                 "lng": lng,
@@ -190,10 +192,10 @@ def fetch_weather_by_year(code_bss: str,
                 "error": str(e),
             })
 
-    if not frame:
+    if not frames:
         return pd.DataFrame()
 
-    return pd.concat(frame, ignore_index=True)
+    return pd.concat(frames, ignore_index=True)
 
 
 def fetch_station (save_file: bool)-> pd.DataFrame:
@@ -230,29 +232,26 @@ def fetch_piezometer (df_station: pd.DataFrame,
     return df
 
 
-def fetch_weather (df_station: pd.DataFrame,
-                   save_file: bool,
-                   failed_calls: list[dict])-> pd.DataFrame:
-    frames=[]
-    failed_calls=[]
+def fetch_weather(df_station: pd.DataFrame,
+                  save_file: bool,
+                  failed_calls: list[dict]) -> pd.DataFrame:
+    frames = []
     start_date = CONFIG["api"]["weather"]["start_date"]
-    
-    for end_date, lat, lng, code_bss in zip(df_station["date_fin_mesure"], 
-                                                df_station["latitude"], 
-                                                df_station["longitude"], 
-                                                df_station["code_bss"]):
-        frames.append(fetch_weather_by_year(code_bss,
-                                        lng,
-                                        lat,
-                                        start_date,
-                                        end_date,
-                                        failed_calls,
-                                        False))
+
+    for end_date, lat, lng, code_bss in zip(df_station["date_fin_mesure"],
+                                            df_station["latitude"],
+                                            df_station["longitude"],
+                                            df_station["code_bss"]):
+        frames.append(fetch_weather_by_year(code_bss, lng, lat,
+                                            start_date, end_date,
+                                            failed_calls, save_file=False))
 
     df = pd.concat(frames, ignore_index=True)
+
     if save_file:
-        save_raw_data_to_s3(df, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["weather"]["raw_filename"], False)
-      
+        save_raw_data_to_s3(df, Path(CONFIG["paths"]["data"]["raw"]),
+                            CONFIG["paths"]["weather"]["raw_filename"], False)
+
     return df
 
   
@@ -278,9 +277,14 @@ def merge_data (df_piezometer: pd.DataFrame,
     
     df_piezometer = df_piezometer.copy()
     df_weather = df_weather.copy()
+    
+    merged = df_weather.merge(df_piezometer, on=["date_index", "code_bss"], how="left")
 
-    merged = df_weather.merge(df_piezometer, on=["date_index", "code_bss"], how="left") # left pour toujours avoir une date, ne pas mettre inner
-    merged = merged.set_index('date_index', drop=False)
+    STATIC_COLS = ["bss_id", "mode_obtention", "nom_producteur"]
+    merged = merged.sort_values(["code_bss", "date_index"])
+    merged[STATIC_COLS] = merged.groupby("code_bss")[STATIC_COLS].transform(lambda s: s.ffill().bfill())
+
+    merged = merged.set_index("date_index", drop=False)
     
     missing = merged["sunrise"].isna().sum()
     if missing > 0:
@@ -320,54 +324,89 @@ def fetch_piezometer_recent(df_station: pd.DataFrame, start_dates: pd.Series) ->
 
 
 def get_forecast(df_station: pd.DataFrame,
-                 save_file: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
+                 save_file: bool,
+                 failed_calls: list[dict] | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Mise à jour incrémentale : recharge l'historique depuis S3, récupère
+    uniquement les jours manquants par station, puis fusionne.
+    """
+    if failed_calls is None:
+        failed_calls = []
 
-    # récupération de l'historique sur S3
-    weather_raw_filename     = str(Path(CONFIG["paths"]["data"]["raw"])/f"{CONFIG['paths']['weather']['raw_filename']}.csv")
-    piezometer_raw_filename  = str(Path(CONFIG["paths"]["data"]["raw"])/f"{CONFIG['paths']['piezometer']['raw_filename']}.csv")
+    raw_dir = Path(CONFIG["paths"]["data"]["raw"])
+    default_start = CONFIG["api"]["weather"]["start_date"]
+
+    # --- Historique S3 ---
+    weather_raw_filename    = str(raw_dir / f"{CONFIG['paths']['weather']['raw_filename']}.csv")
+    piezometer_raw_filename = str(raw_dir / f"{CONFIG['paths']['piezometer']['raw_filename']}.csv")
     df_weather_hist, df_piezometer_hist = load_historical_in_s3(weather_raw_filename, piezometer_raw_filename)
 
-    df_weather_hist = df_weather_hist.rename(columns={"date_index": "date"})
+    df_weather_hist    = df_weather_hist.rename(columns={"date_index": "date"})
     df_piezometer_hist = df_piezometer_hist.rename(columns={"date_index": "date_mesure"})
 
-    # dernieres dates connues par station
-    last_weather_dates      = get_last_dates(df_weather_hist, "code_bss", "date")
-    last_piezometer_dates   = get_last_dates(df_piezometer_hist, "code_bss", "date_mesure")
+    # --- Dates de reprise par station ---
+    last_weather_dates    = get_last_dates(df_weather_hist, "code_bss", "date")
+    last_piezometer_dates = get_last_dates(df_piezometer_hist, "code_bss", "date_mesure")
 
-    # dates de reprise
-    start_dates_weather     = build_start_dates(df_station, last_weather_dates, CONFIG["api"]["weather"]["start_date"])
-    start_dates_piezometer  = build_start_dates(df_station, last_piezometer_dates, CONFIG["api"]["weather"]["start_date"])
+    start_dates_weather    = build_start_dates(df_station, last_weather_dates, default_start)
+    start_dates_piezometer = build_start_dates(df_station, last_piezometer_dates, default_start)
 
-    # fetch uniquement sur la periode recente
-    failed_calls: list[dict] = []
-    df_weather_new          = fetch_weather_recent(df_station, start_dates_weather, failed_calls)
-    df_piezometer_new       = fetch_piezometer_recent(df_station, start_dates_piezometer)
+    # --- Fetch de la période récente ---
+    n_failed_before = len(failed_calls)
+    df_weather_new    = fetch_weather_recent(df_station, start_dates_weather, failed_calls)
+    df_piezometer_new = fetch_piezometer_recent(df_station, start_dates_piezometer)
 
-    # fusion avec l'historique
-    df_weather              = merge_data_history(df_weather_hist, df_weather_new, "code_bss", "date")
-    df_piezometer           = merge_data_history(df_piezometer_hist, df_piezometer_new, "code_bss", "date_mesure")
+    logger.info("Forecast : %d nouvelles lignes météo, %d nouvelles lignes piézo, %d appels météo en échec",
+                len(df_weather_new), len(df_piezometer_new), len(failed_calls) - n_failed_before)
+
+    # --- Fusion avec l'historique ---
+    df_weather    = merge_data_history(df_weather_hist, df_weather_new, "code_bss", "date")
+    df_piezometer = merge_data_history(df_piezometer_hist, df_piezometer_new, "code_bss", "date_mesure")
 
     if save_file:
-        save_raw_data_to_s3(df_weather, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["weather"]["raw_filename"],False)
-        save_raw_data_to_s3(df_piezometer, Path(CONFIG["paths"]["data"]["raw"]), CONFIG["paths"]["piezometer"]["raw_filename"],False)
+        save_raw_data_to_s3(df_weather, raw_dir, CONFIG["paths"]["weather"]["raw_filename"], False)
+        save_raw_data_to_s3(df_piezometer, raw_dir, CONFIG["paths"]["piezometer"]["raw_filename"], False)
 
     return df_weather, df_piezometer
 
 
-def build_dataset(skip_historical: bool = False, save_csv: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
-    failed_calls = []
-    df_station = fetch_station(save_file=save_csv)
+def build_dataset(skip_historical: bool = False,
+                  save_csv: bool = False,
+                  fail_on_missing: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Construit le dataset interim (météo + piézo).
 
-    if not skip_historical:
-        df_weather = fetch_weather(df_station, save_file=save_csv, failed_calls=failed_calls)
-        df_piezometer = fetch_piezometer(df_station, save_file=save_csv)
+    skip_historical : True  -> mise à jour incrémentale depuis l'historique S3
+                      False -> reconstruction complète depuis les API
+    save_csv        : sauvegarde des fichiers raw / processed / interim sur S3
+    fail_on_missing : lève une erreur si des appels météo ont échoué
+    """
+    failed_calls: list[dict] = []
+
+    df_station = fetch_station(save_file=save_csv)
+    logger.info("%d stations récupérées", len(df_station))
+
+    if skip_historical:
+        df_weather, df_piezometer = get_forecast(df_station, save_file=save_csv, failed_calls=failed_calls)
     else:
-        df_weather, df_piezometer = get_forecast (df_station, save_file=save_csv)
-     
-    df_weather = weather_dataset_cleaning(df_weather, save_file=save_csv)
+        df_weather    = fetch_weather(df_station, save_file=save_csv, failed_calls=failed_calls)
+        df_piezometer = fetch_piezometer(df_station, save_file=save_csv)
+
+    if failed_calls:
+        details = [(f["code_bss"], f["start_date"], f["end_date"]) for f in failed_calls]
+        msg = f"{len(failed_calls)} appels météo en échec : {details}"
+        if fail_on_missing:
+            raise RuntimeError(msg)
+        logger.warning(msg)
+
+    df_weather    = weather_dataset_cleaning(df_weather, save_file=save_csv)
     df_piezometer = piezometer_dataset_cleaning(df_piezometer, save_file=save_csv)
 
-    return df_station, merge_data(df_piezometer, df_weather, save_file=save_csv)
+    df_interim = merge_data(df_piezometer, df_weather, save_file=save_csv)
+    logger.info("Dataset interim : %d lignes, %d stations",
+                len(df_interim), df_interim["code_bss"].nunique())
+
+    return df_station, df_interim
 
 
 # ---------------------------- RUN ---------------------------

@@ -62,13 +62,13 @@ PIPELINE_SECRET         = Variable.get("pipeline_secret")
 # ---------------------------------------------------------------------------
 default_args = {
     "owner": "admin",
-    "retries": 2,                         # nb de tentatives avant FAILED définitif
+    "retries": 0,                         # nb de tentatives avant FAILED définitif
     "retry_delay": timedelta(minutes=5),  # délai entre 2 tentatives
 }
 
 
 @dag(
-    dag_id="nappecast_fetch_external_apis",
+    dag_id="nappecast_daily_predict",
     description="Récupère les données Hubeau + OpenWeather via l'API NappeCast + prédiction + archivage en db",
     default_args=default_args,
     schedule="0 6 * * *", # tous les jours à 6h
@@ -79,7 +79,7 @@ default_args = {
     doc_md=__doc__,
 )
 
-def nappecast_fetch_external_apis():
+def nappecast_daily_predict():
     @task
     def check_hubeau_health() -> None:
         """
@@ -236,4 +236,4 @@ def nappecast_fetch_external_apis():
     transform_data >> [predictH14, predictH30]
     [predictH14, predictH30] >> load_data
 
-nappecast_fetch_external_apis()
+nappecast_daily_predict()

@@ -36,7 +36,7 @@ REQUEST_TIMEOUT = 120
 # ---------------------------------------------------------------------------
 default_args = {
     "owner": "admin",
-    "retries": 2,
+    "retries": 0,
     "retry_delay": timedelta(minutes=5),
 }
 

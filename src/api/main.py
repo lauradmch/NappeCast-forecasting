@@ -126,7 +126,7 @@ def collect(_: None = Depends(verify_secret)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la collecte des données : {e}")
 
-    df_interim = df_interim.where(pd.notnull(df_interim), None)
+    df_interim = df_interim.astype(object).where(pd.notna(df_interim), None)
 
     try:
         records = [InterimRecord(**row) for row in df_interim.to_dict(orient="records")]
