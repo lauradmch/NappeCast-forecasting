@@ -120,7 +120,7 @@ class ProcessedRecord(BaseModel):
 class ForecastRecord(BaseModel):
     horizon: int
     last_train: date
-    date_index: date
+    ds: date
     code_bss: str
     bss_id: str
     yhat: float

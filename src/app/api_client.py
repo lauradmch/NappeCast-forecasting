@@ -104,7 +104,7 @@ def post_forecast(code_bss: str, horizon: Literal[14, 30], start_date: date) -> 
         raise RuntimeError(f"Erreur API /data/forecast : {payload.get('detail', payload)}")
 
     forecast_df = pd.DataFrame(payload["data"])
-    forecast_df["date_index"] = pd.to_datetime(forecast_df["date_index"])
+    forecast_df["ds"] = pd.to_datetime(forecast_df["ds"])
     last_train = pd.to_datetime(payload["last_train"])
 
     return last_train, forecast_df

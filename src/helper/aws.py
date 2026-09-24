@@ -224,8 +224,8 @@ def read_forecast_rds(code_bss: str, horizon: Literal[14, 30], start_date: date)
         FROM forecast
         WHERE code_bss = :code_bss
           AND horizon = :horizon
-          AND date_index >= :start_date
-        ORDER BY last_train, date_index
+          AND ds >= :start_date
+        ORDER BY last_train, ds
     """)
     with engine.connect() as conn:
         df = pd.read_sql(query, conn, params={"horizon": horizon, "code_bss": code_bss, "start_date": start_date})
@@ -297,7 +297,7 @@ def load_forecast_to_rds(H: int) -> dict:
                            CONFIG["s3"]["bucket"],
                            filename,
                            sql_path,
-                           ["code_bss", "date_index", "horizon", "last_train"],
+                           ["code_bss", "ds", "horizon", "last_train"],
                            "forecast")
 
 

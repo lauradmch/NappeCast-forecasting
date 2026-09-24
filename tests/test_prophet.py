@@ -27,15 +27,15 @@ def _make_daily(n_days: int = 200, seed: int = 42) -> pd.DataFrame:
     for col in DAILY_FEATURES:
         data[col] = rng.uniform(0, 10, n_days)
     df = pd.DataFrame(data, index=dates)
-    df.index.name = "date_index"
+    df.index.name = "ds"
     return df
 
 
 def _make_raw_df(n_days: int = 200, seed: int = 42) -> pd.DataFrame:
-    """DataFrame brut avec colonne date_index (avant set_index), pour build_daily."""
+    """DataFrame brut avec colonne ds (avant set_index), pour build_daily."""
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2020-01-01", periods=n_days, freq="D")
-    data = {"date_index": dates, TARGET: rng.normal(5, 1, n_days)}
+    data = {"ds": dates, TARGET: rng.normal(5, 1, n_days)}
     for col in DAILY_FEATURES:
         data[col] = rng.uniform(0, 10, n_days)
     return pd.DataFrame(data)
@@ -109,7 +109,7 @@ class TestBuildTrainFrame:
 
     def test_df_has_ds_y_and_regressors(self, daily):
         df, reg_cols = build_train_frame(daily, H=14)
-        assert "date_index" in df.columns
+        assert "ds" in df.columns
         assert "y" in df.columns
         for col in reg_cols:
             assert col in df.columns
@@ -135,7 +135,7 @@ class TestBuildTrainFrame:
 
     def test_ds_is_datetime(self, daily):
         df, _ = build_train_frame(daily, H=14)
-        assert pd.api.types.is_datetime64_any_dtype(df["date_index"])
+        assert pd.api.types.is_datetime64_any_dtype(df["ds"])
 
     def test_index_reset(self, daily):
         df, _ = build_train_frame(daily, H=14)
@@ -156,8 +156,8 @@ class TestBuildFutureFrame:
         """future.ds doit contenir des dates au-delà de la dernière date d'entraînement."""
         df_train, _ = build_train_frame(daily, H=14)
         df_future, _ = build_future_frame(daily, H=14)
-        last_train = df_train["date_index"].max()
-        assert df_future["date_index"].max() > last_train
+        last_train = df_train["ds"].max()
+        assert df_future["ds"].max() > last_train
 
     def test_future_longer_than_train(self, daily):
         df_train, _ = build_train_frame(daily, H=14)
@@ -167,7 +167,7 @@ class TestBuildFutureFrame:
     def test_future_h14_vs_h30(self, daily):
         df14, _ = build_future_frame(daily, H=14)
         df30, _ = build_future_frame(daily, H=30)
-        assert df30["date_index"].max() > df14["date_index"].max()
+        assert df30["ds"].max() > df14["ds"].max()
 
     def test_no_nan_in_regressors(self, daily):
         df, reg_cols = build_future_frame(daily, H=14)
@@ -188,17 +188,17 @@ class TestPlotForecast:
     def _make_prophet_df(self, n: int = 200) -> pd.DataFrame:
         dates = pd.date_range("2020-01-01", periods=n, freq="D")
         rng = np.random.default_rng(0)
-        return pd.DataFrame({"date_index": dates, "y": rng.normal(5, 1, n)})
+        return pd.DataFrame({"ds": dates, "y": rng.normal(5, 1, n)})
 
     def _make_forecast(self, df_prophet: pd.DataFrame, H: int = 14) -> pd.DataFrame:
-        last = df_prophet["date_index"].max()
+        last = df_prophet["ds"].max()
         future_dates = pd.date_range(last + pd.Timedelta(days=1), periods=H, freq="D")
-        all_dates = pd.concat([df_prophet["date_index"],
+        all_dates = pd.concat([df_prophet["ds"],
                                 pd.Series(future_dates)]).reset_index(drop=True)
         n = len(all_dates)
         rng = np.random.default_rng(1)
         return pd.DataFrame({
-            "date_index":         all_dates,
+            "ds":         all_dates,
             "yhat":       rng.normal(5, 1, n),
             "yhat_lower": rng.normal(4, 1, n),
             "yhat_upper": rng.normal(6, 1, n),
