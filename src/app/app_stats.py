@@ -164,9 +164,6 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
 
 
 def render_stats(code_bss: str, df_processed: pd.DataFrame):
-    #debugging
-    st.write(df_processed[SPLI_COL].dtype, df_processed[SPLI_COL].notna().sum(), len(df_processed))
-    #
     if df_processed is None or df_processed.empty:
         st.warning("No dataset loaded.")
         st.stop()

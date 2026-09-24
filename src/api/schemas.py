@@ -99,22 +99,22 @@ class ProcessedRecord(BaseModel):
     niveau_nappe_eau: float
     mode_obtention: str
     nom_producteur: str
-    P_cum_30d: Optional[float] = None
-    P_cum_90d: Optional[float] = None
-    Peff_cum_30d: Optional[float] = None
-    Peff_cum_90d: Optional[float] = None
-    Temperature_mean_30d: Optional[float] = None
-    Temperature_mean_90d: Optional[float] = None
-    SPLI: Optional[float] = None
-    SPI: Optional[float] = None
-    SETI: Optional[float] = None
-    SSTI: Optional[float] = None
-    SSRI: Optional[float] = None
-    SWSI: Optional[float] = None
-    SCCI: Optional[float] = None
-    SPMI: Optional[float] = None
-    SPEI: Optional[float] = None
-    SSMI: Optional[float] = None
+    p_cum_30d: Optional[float] = None
+    p_cum_90d: Optional[float] = None
+    peff_cum_30d: Optional[float] = None
+    peff_cum_90d: Optional[float] = None
+    temperature_mean_30d: Optional[float] = None
+    temperature_mean_90d: Optional[float] = None
+    spli: Optional[float] = None
+    spi: Optional[float] = None
+    seti: Optional[float] = None
+    ssti: Optional[float] = None
+    ssri: Optional[float] = None
+    swsi: Optional[float] = None
+    scci: Optional[float] = None
+    spmi: Optional[float] = None
+    spei: Optional[float] = None
+    ssmi: Optional[float] = None
 
 
 class ForecastRecord(BaseModel):
