@@ -41,12 +41,9 @@ CREATE TABLE IF NOT EXISTS processed (
     ssmi                              DOUBLE PRECISION
 );
 
-CREATE INDEX IF NOT EXISTS idx_processed_code_bss
-    ON processed (code_bss);
-
 CREATE INDEX IF NOT EXISTS idx_processed_inserted_at
     ON processed (inserted_at);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_processed_bss_date_run
+CREATE UNIQUE INDEX IF NOT EXISTS uq_processed_bss_date
     ON processed (code_bss, date_index);
 
