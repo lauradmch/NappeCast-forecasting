@@ -45,7 +45,7 @@ def render_sidebar(df_station: pd.DataFrame, code_bss: str) -> None:
             zoom=6
         )
         fig.update_layout(
-            mapbox_style="open-street-map",
+            map_style="open-street-map",
             uirevision="constant",
             height=250,
             margin=dict(l=0, r=0, t=0, b=0),
