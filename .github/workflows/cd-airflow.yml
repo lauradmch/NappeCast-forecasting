@@ -80,7 +80,7 @@ jobs:
           host: ${{ secrets.AIRFLOW_EC2_HOST }}
           username: ${{ secrets.AIRFLOW_EC2_USER }}
           key: ${{ secrets.AIRFLOW_EC2_SSH_KEY }}
-          source: "docker/airflow/docker-compose.yml,docker/airflow/airflow.env,docker/airflow/deploy.sh,docker/airflow/dag/*"
+          source: "docker/airflow/docker-compose.yml,docker/airflow/airflow.env,docker/airflow/deploy.sh,docker/airflow/dags/*"
           strip_components: 2
           target: /tmp/airflow-deploy
 

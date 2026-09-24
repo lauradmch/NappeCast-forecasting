@@ -130,7 +130,7 @@ jobs:
           host: ${{ secrets.APIAPP_EC2_HOST }}
           username: ${{ secrets.APIAPP_EC2_USER }}
           key: ${{ secrets.APIAPP_EC2_SSH_KEY }}
-          source: "docker/app_api/docker-compose.yml,docker/app_api/appapi.env,docker/app_api/deploy.sh"
+          source: "docker/app_api/docker-compose.yml,docker/app_api/appapi.env,docker/app_api/deploy.sh,docker/app_api/Caddyfile"
           strip_components: 2
           target: /tmp/app_api-deploy
 
@@ -147,7 +147,8 @@ jobs:
             sudo mv /tmp/app_api-deploy/docker-compose.yml /opt/app_api/docker-compose.yml
             sudo mv /tmp/app_api-deploy/appapi.env         /opt/app_api/appapi.env
             sudo mv /tmp/app_api-deploy/deploy.sh           /opt/app_api/deploy.sh
-            sudo chown appuser:appuser /opt/app_api/docker-compose.yml /opt/app_api/appapi.env /opt/app_api/deploy.sh
+            sudo mv /tmp/app_api-deploy/Caddyfile           /opt/app_api/Caddyfile          
+            sudo chown appuser:appuser /opt/app_api/docker-compose.yml /opt/app_api/Caddyfile /opt/app_api/appapi.env /opt/app_api/deploy.sh
             sudo chmod +x /opt/app_api/deploy.sh
             sudo /opt/app_api/deploy.sh
             rm -rf /tmp/app_api-deploy
