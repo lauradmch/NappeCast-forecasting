@@ -31,6 +31,8 @@ from airflow.decorators import dag, task
 from airflow.exceptions import AirflowException
 from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
+from airflow.exceptions import AirflowSkipException
+from airflow.utils.email import send_email
 
 # ---------------------------------------------------------------------------
 # logs
@@ -56,6 +58,8 @@ REQUEST_TIMEOUT         = 120            # Timeout HTTP (en secondes) appliqué 
 HEALTH_CHECK_LATITUDE   = 48.85   # Pour le health check
 HEALTH_CHECK_LONGITUDE  = 2.35
 PIPELINE_SECRET         = Variable.get("pipeline_secret")
+
+ALERT_EMAIL = Variable.get("nappecast_alert_email", default_var="laura.domenech22@gmail.com")
 
 # ---------------------------------------------------------------------------
 # default_args : paramètres hérités par TOUTES les tasks du DAG
@@ -219,7 +223,43 @@ def nappecast_fetch_external_apis():
         result = response.json()
 
         logger.info("Load OK : %s", result)
-        return result       
+        return result     
+
+    @task(retries=0)
+    def monitor(horizon: int) -> dict:
+        """Compare l'erreur réelle récente au RMSE de validation du modèle @production."""
+        from src.monitoring.drift import run_performance_report
+
+        result = run_performance_report(horizon)
+
+        if result["status"] == "insufficient_data":
+            raise AirflowSkipException(
+                f"H={horizon} : {result['n_rows']} prédictions mûres, trop peu pour évaluer"
+            )
+
+        logger.info("H=%d | rmse=%.3f | ref=%.3f | ratio=%.2f | drift=%s",
+                    horizon, result["rmse"], result["reference_rmse"],
+                    result["rmse_ratio"], result["drift_detected"])
+
+        if result["drift_detected"]:
+            send_email(
+                to=ALERT_EMAIL,
+                subject=f"[NappeCast] Drift de performance détecté — H={horizon}j",
+                html_content=(
+                    f"<p>Le modèle <b>v{result['model_version']}</b> (H={horizon}j) se dégrade.</p>"
+                    f"<ul>"
+                    f"<li>RMSE observé : <b>{result['rmse']:.3f} m</b> "
+                    f"({result['window_start']} → {result['window_end']}, {result['n_rows']} prédictions)</li>"
+                    f"<li>RMSE de validation : {result['reference_rmse']:.3f} m</li>"
+                    f"<li>Ratio : <b>{result['rmse_ratio']:.2f}</b> (seuil {result['drift_threshold']})</li>"
+                    f"<li>Biais : {result['bias']:+.3f} m — couverture : {result['coverage']:.0%}</li>"
+                    f"</ul>"
+                    f"<p>Rapport Evidently joint dans MLflow (run <code>monitoring-H{horizon}</code>).</p>"
+                    f"<p>Action possible : déclencher <code>nappecast_monthly_retrain</code> hors planning.</p>"
+                ),
+            )
+
+        return result   
 
     health_checks_passed = EmptyOperator(task_id="health_checks_passed")
     hubeau_health = check_hubeau_health()
@@ -229,11 +269,13 @@ def nappecast_fetch_external_apis():
     predictH14 = predict.override(task_id="predict_h14")(horizon=14)
     predictH30 = predict.override(task_id="predict_h30")(horizon=30)
     load_data = load()
+    monitoring = monitor.expand(horizon=[14, 30])
 
     [hubeau_health, openweather_health] >> health_checks_passed
     health_checks_passed >> collect_data
     collect_data >> transform_data
     transform_data >> [predictH14, predictH30]
     [predictH14, predictH30] >> load_data
+    load_data >> monitoring
 
 nappecast_fetch_external_apis()
