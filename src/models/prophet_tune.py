@@ -95,9 +95,9 @@ BASE_PARAMS = dict(CONFIG["model"]["prophet"]["base_params"])
 # spanning both sides of Prophet's default (10), changepoint_range <= 0.9 to
 # avoid overfitting the extrapolation tail.
 PARAM_GRID = {
-    "changepoint_prior_scale": [0.01, 0.05, 0.1, 0.3, 0.5], # [0.1, 0.3, 0.5, 0.7],
-    "seasonality_prior_scale": [0.1, 1.0, 10.0], # [0.05, 0.1, 1.0, 10.0]
-    "changepoint_range":       [0.8],#[0.8, 0.9],
+    "changepoint_prior_scale": [0.01, 0.05, 0.1, 0.3, 0.5, 0.7],
+    "seasonality_prior_scale": [0.05, 0.1, 1.0, 10.0],
+    "changepoint_range":       [0.8, 0.9],
 }
 # --- Selection penalty (RMSE + robustness) ---
 # score = rmse, inflated when error grows across the horizon (degradation)
