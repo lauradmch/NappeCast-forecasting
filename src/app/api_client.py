@@ -96,7 +96,7 @@ def post_forecast(code_bss: str, horizon: Literal[14, 30], start_date: date) -> 
     """Request a forecast. Returns PredictResponse."""
     payload = _post("/data/forecast",timeout=60,
                      code_bss=code_bss, 
-                     horizon=horizon,
+                     H=horizon,
                      start_date=start_date.isoformat(),
                      headers=_secret_headers())
 

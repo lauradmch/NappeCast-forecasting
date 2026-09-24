@@ -276,10 +276,13 @@ def get_processed(code_bss: str, end_date: date):
 
 
 @app.post("/data/forecast", response_model=ForecastResponse, tags=["data"])
-def get_forecast(code_bss: str, horizon: Literal[14, 30], start_date: date):
+def get_forecast(code_bss: str, start_date: date, H: int = Query(..., description="Horizon de prévision : 14 ou 30 jours")):
     """Récupère les datas de la table forecast depuis le serveur de base de données AWS RDS"""
+    if H not in ALLOWED_HORIZONS:
+        raise HTTPException(status_code=422, detail=f"horizon doit valoir {ALLOWED_HORIZONS}, reçu {H}")
+
     try:
-        df_forecast = read_forecast_rds(code_bss, horizon, start_date)
+        df_forecast = read_forecast_rds(code_bss, H, start_date)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des prévisions : {e}")
 
@@ -291,4 +294,4 @@ def get_forecast(code_bss: str, horizon: Literal[14, 30], start_date: date):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur de formatage des données : {e}")
 
-    return ForecastResponse(status="ok", n_rows=len(records), horizon=horizon, last_train=start_date, data=records)
+    return ForecastResponse(status="ok", n_rows=len(records), horizon=H, last_train=start_date, data=records)
