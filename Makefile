@@ -12,3 +12,6 @@ data_histo:
 data_featuring:
 	python -m src.data.feat_dataset --save-csv
 
+data_load_station_to_rds:
+	python -m src.helper.aws
+

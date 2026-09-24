@@ -255,7 +255,8 @@ def load_csv_to_rds(s3_client,
     if df.empty:
         return {"rows_read": 0, "rows_inserted": 0}
 
-    df = df.where(pd.notnull(df), None)
+    df.columns = df.columns.str.lower()
+    df = df.astype(object).where(pd.notnull(df), None)
     records = df.to_dict(orient="records")
  
     # 3. Insérer les lignes par lots, doublons ignorés (ON CONFLICT DO NOTHING)
@@ -304,7 +305,7 @@ def load_forecast_to_rds(H: int) -> dict:
 
 def load_processed_to_rds() -> dict:
     s3 = boto3.client("s3")
-    filename = str(Path(CONFIG["paths"]["data"]["processed"])/f"{CONFIG['paths']['data']['processed_filename']}.csv")
+    filename = str(Path(CONFIG["paths"]["data"]["processed"])/f"{CONFIG['paths']['processed_filename']}.csv")
     sql_path = Path(__file__).parent.parent / "sql" / "create_table_processed.sql"
 
     return load_csv_to_rds(s3, 
@@ -315,4 +316,11 @@ def load_processed_to_rds() -> dict:
                            "processed")
 
 
-   
+# ---------------------------- RUN ---------------------------
+def main():
+    insert_station   = load_station_to_rds()["rows_inserted"]
+    insert_processed = load_processed_to_rds()["rows_inserted"]
+    insert_forecast  = sum(load_forecast_to_rds(H)["rows_inserted"] for H in (14, 30))
+
+if __name__ == "__main__":
+    main()

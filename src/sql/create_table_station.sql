@@ -27,9 +27,6 @@ CREATE TABLE IF NOT EXISTS station (
     date_maj                            TIMESTAMPTZ 
 );
 
-CREATE INDEX IF NOT EXISTS idx_station_code_bss_date_index
-    ON station (code_bss, date_index);
-
 CREATE INDEX IF NOT EXISTS idx_station_inserted_at
     ON station (inserted_at);
 

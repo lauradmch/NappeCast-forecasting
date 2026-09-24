@@ -38,9 +38,9 @@ class StationRecord(BaseModel):
     nom_commune: str
     longitude: float
     latitude: float
-    codes_bdlisa: List[str] = str
-    urns_bdlisa: List[str] = str
-    geometry: Optional[dict] = None
+    codes_bdlisa: str
+    urns_bdlisa: str
+    geometry: Optional[str] = None
     bss_id: str
     altitude_station: Optional[float] = None
     nb_mesures_piezo: Optional[int] = None
