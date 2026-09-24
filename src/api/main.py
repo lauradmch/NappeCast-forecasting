@@ -14,6 +14,7 @@ from datetime import date, datetime
 from typing import Optional, Literal
 from pathlib import Path
 from src.config import load_config
+from fastapi import Depends, HTTPException, Query
 
 from src.data.make_dataset import build_dataset
 from src.data.feat_dataset import feat_dataset
@@ -50,6 +51,7 @@ from src.models.prophet_tune import run_tuning
 #--------------------- VARIABLES ---------------------
 CONFIG = load_config()
 PIPELINE_SECRET = os.environ["PIPELINE_SECRET"]
+ALLOWED_HORIZONS = (14, 30)
 
 _tuning_lock = threading.Lock()  # pour éviter que deux tuning se chevauchent (et écrasent le CSV)
 
@@ -154,14 +156,18 @@ def transform(_: None = Depends(verify_secret)):
 
 
 @app.post("/pipeline/forecast", response_model=ForecastResponse, tags=["pipeline"])
-def forecast(H: Literal[14, 30], _: None = Depends(verify_secret)):
+def forecast(H: int = Query(..., description="Horizon de prévision : 14 ou 30 jours"),
+             _: None = Depends(verify_secret)):
     """Effectue le predict avec les dernières données processed"""
+    if H not in ALLOWED_HORIZONS:
+        raise HTTPException(status_code=422, detail=f"H doit valoir {ALLOWED_HORIZONS}, reçu {H}")
+
     try:
         last_train, df_forecast = predict(H, save_csv=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du calcul de la prévision : {e}")
 
-    df_forecast = df_forecast.where(pd.notnull(df_forecast), None)
+    df_forecast = df_forecast.astype(object).where(pd.notna(df_forecast), None)
 
     try:
         records = [ForecastRecord(**row) for row in df_forecast.to_dict(orient="records")]
@@ -169,11 +175,17 @@ def forecast(H: Literal[14, 30], _: None = Depends(verify_secret)):
         raise HTTPException(status_code=500, detail=f"Erreur de formatage des données : {e}")
 
     return ForecastResponse(status="ok", horizon=H, last_train=last_train,
-                             n_rows=len(records), data=records)
+                            n_rows=len(records), data=records)
 
 
 @app.post("/pipeline/tuning", response_model=TuningResponse, tags=["training"])
-def run_model_tuning(H: Literal[14, 30], source: Literal["s3", "local"] = "s3", _: None = Depends(verify_secret)):
+def run_model_tuning(H: int = Query(..., description="Horizon de prévision : 14 ou 30 jours"),
+                     source: Literal["s3", "local"] = "s3",
+                     _: None = Depends(verify_secret)):
+    """Effectue le predict avec les dernières données processed"""
+    if H not in ALLOWED_HORIZONS:
+        raise HTTPException(status_code=422, detail=f"H doit valoir {ALLOWED_HORIZONS}, reçu {H}")
+
     """Exécute le tuning du modèle pour un horizon donné"""
     if not _tuning_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Tuning déjà en cours")
@@ -182,10 +194,9 @@ def run_model_tuning(H: Literal[14, 30], source: Literal["s3", "local"] = "s3", 
         return TuningResponse(status="ok", horizon=H)
     except Exception as e:
         logger.exception("Tuning failed for H=%d: %s", H, e)
-        raise HTTPException(status_code=500, detail=f"Tuning failed for H={H}:{e}")
+        raise HTTPException(status_code=500, detail=f"Tuning failed for H={H}: {e}")
     finally:
         _tuning_lock.release()
-
 
 @app.post("/pipeline/load", response_model=LoadResponse, tags=["pipeline"])
 def load(_: None = Depends(verify_secret)):
