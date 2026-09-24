@@ -130,7 +130,7 @@ jobs:
           host: ${{ secrets.APIAPP_EC2_HOST }}
           username: ${{ secrets.APIAPP_EC2_USER }}
           key: ${{ secrets.APIAPP_EC2_SSH_KEY }}
-          source: "docker/app_api/docker-compose.yml,docker/app_api/deploy.sh"
+          source: "docker/app_api/docker-compose.yml,docker/app_api/appapi.env,docker/app_api/deploy.sh"
           strip_components: 2
           target: /tmp/app_api-deploy
 
