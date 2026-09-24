@@ -12,11 +12,9 @@ import io
 from pathlib import Path
 from src.config import load_config
 from botocore.exceptions import ClientError
-from typing import Dict, Optional, Literal
+from typing import Literal
 from pathlib import Path
-from io import BytesIO
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
 from sqlalchemy import MetaData, Table, create_engine, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from datetime import date, datetime
@@ -26,9 +24,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------- VARIABLES ---------------------------
 
 CONFIG = load_config()
-
-
-
 
 # ---------------------------- S3 ---------------------------
 
@@ -187,7 +182,6 @@ def read_station_rds(code_bss: str) -> pd.DataFrame:
     Intérroge la base de données RDS
         -> connexion a postgre RDS AWS
     """
-    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
     engine = create_engine(db_uri)
     query = text("SELECT * FROM station WHERE code_bss = :code_bss")
@@ -195,6 +189,7 @@ def read_station_rds(code_bss: str) -> pd.DataFrame:
         df = pd.read_sql(query, conn, params={"code_bss": code_bss})
 
     return df.copy()
+
 
 def read_processed_rds(code_bss: str, end_date: date) -> pd.DataFrame:
     """
@@ -215,6 +210,7 @@ def read_processed_rds(code_bss: str, end_date: date) -> pd.DataFrame:
         df = pd.read_sql(query, conn, params={"end_date": end_date, "code_bss": code_bss})
 
     return df.copy()
+
 
 def read_forecast_rds(code_bss: str, horizon: Literal[14, 30], start_date: date) -> pd.DataFrame:
     """

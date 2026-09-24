@@ -4,13 +4,12 @@ API de test (acces databse, acces inférence ...)
 
 import threading
 import pandas as pd 
-import boto3
 import logging
 import os
 
 from fastapi import FastAPI, Depends, Header, HTTPException
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date
 from typing import Optional, Literal
 from pathlib import Path
 from src.config import load_config
