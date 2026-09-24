@@ -80,7 +80,7 @@ jobs:
           host: ${{ secrets.AIRFLOW_EC2_HOST }}
           username: ${{ secrets.AIRFLOW_EC2_USER }}
           key: ${{ secrets.AIRFLOW_EC2_SSH_KEY }}
-          source: "docker/airflow/docker-compose.yml,docker/airflow/airflow.env,docker/airflow/deploy.sh"
+          source: "docker/airflow/docker-compose.yml,docker/airflow/airflow.env,docker/airflow/deploy.sh,docker/airflow/dag/*"
           strip_components: 2
           target: /tmp/airflow-deploy
 
@@ -94,9 +94,13 @@ jobs:
           script: |
             set -e
             sudo mkdir -p /opt/airflow
+            sudo mkdir -p /opt/airflow/dags
             sudo mv /tmp/airflow-deploy/docker-compose.yml /opt/airflow/docker-compose.yml
             sudo mv /tmp/airflow-deploy/airflow.env         /opt/airflow/airflow.env
             sudo mv /tmp/airflow-deploy/deploy.sh          /opt/airflow/deploy.sh
+            sudo rm -rf /opt/airflow/dags/*
+            sudo mv /tmp/airflow-deploy/dag/* /opt/airflow/dags/
+            sudo chown -R 50000:0 /opt/airflow/dags       
             sudo chown appuser:appuser /opt/airflow/docker-compose.yml /opt/airflow/airflow.env /opt/airflow/deploy.sh
             sudo chmod +x /opt/airflow/deploy.sh
             sudo /opt/airflow/deploy.sh
