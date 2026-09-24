@@ -47,7 +47,7 @@ EXPERIMENT_NAME = CONFIG["mlflow"]["experiment_name"]
 REPORTS_DIR = Path("reports/monitoring")
  
 # Alerte si le RMSE observé dépasse de 25 % le RMSE de validation du modèle.
-DRIFT_RMSE_RATIO = 1.5
+DRIFT_RMSE_RATIO = 1.25
  
 # ---------------------------- LOGGING --------------------------------
 logger = logging.getLogger(__name__)
