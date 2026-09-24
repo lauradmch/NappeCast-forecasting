@@ -23,11 +23,9 @@ Déroulé :
 from __future__ import annotations
 
 import logging
-from xml.parsers.expat import model
 import requests
 
 from typing import  Literal
-from pathlib import Path
 from datetime import datetime, timedelta
 from airflow.decorators import dag, task
 from airflow.exceptions import AirflowException
@@ -192,7 +190,7 @@ def nappecast_fetch_external_apis():
         response = requests.post(endpoint, timeout=REQUEST_TIMEOUT, params={"H": horizon}, headers=headers)
 
         if response.status_code >= 400:
-            logger.error("Réponse API pipeline/transform (%s) : %s", response.status_code, response.text)
+            logger.error("Réponse API pipeline/forecast (%s) : %s", response.status_code, response.text)
 
         response.raise_for_status()
         result = response.json()
@@ -228,14 +226,14 @@ def nappecast_fetch_external_apis():
     openweather_health = check_openweather_health()
     collect_data = collect()
     transform_data = transform()
-    predictH14 = predict(horizon=14)
-    predictH30 = predict(horizon=30)
+    predictH14 = predict.override(task_id="predict_h14")(horizon=14)
+    predictH30 = predict.override(task_id="predict_h30")(horizon=30)
     load_data = load()
-    
+
     [hubeau_health, openweather_health] >> health_checks_passed
     health_checks_passed >> collect_data
-    collect_data >> transform
-    transform_data >> [predictH14,predictH30]
-    [predictH14,predictH30] >> load_data
+    collect_data >> transform_data
+    transform_data >> [predictH14, predictH30]
+    [predictH14, predictH30] >> load_data
 
 nappecast_fetch_external_apis()
