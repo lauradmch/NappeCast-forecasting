@@ -97,7 +97,7 @@ st.markdown("""
 
 #---------------------  Load data ---------------------
 @st.cache_data
-def load_data(code_bss: str, end_date: datetime)-> tuple[pd.DataFrame, pd.DataFrame]:
+def load_data(code_bss: str, end_date: date)-> tuple[pd.DataFrame, pd.DataFrame]:
     df_station      = api_client.post_station(code_bss)
     df_processed    = api_client.post_processed(code_bss, end_date)
 
