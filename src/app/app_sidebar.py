@@ -37,7 +37,7 @@ def render_sidebar(df_station: pd.DataFrame, code_bss: str) -> None:
     with st.sidebar:
         st.header(f"**Piezometer {station['libelle_pe']}**")
         st.caption(f"BSS {station['bss_id']} — {station['code_bss']}")
-        fig = px.scatter_mapbox(
+        fig = px.scatter_map(
             df_station,
             lat="latitude",
             lon="longitude",
