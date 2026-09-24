@@ -205,6 +205,7 @@ def run_model_tuning(H: int = Query(..., description="Horizon de prévision : 14
     finally:
         _tuning_lock.release()
 
+
 @app.post("/pipeline/load", response_model=LoadResponse, tags=["pipeline"])
 def load(_: None = Depends(verify_secret)):
     """Historise dans RDS les données"""
@@ -232,7 +233,6 @@ def transfert_log(_: None = Depends(verify_secret)):
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'envoi du log vers S3 : {e}")
 
     return TransfertLogResponse(status="ok", file="logs/nappecast.log")
-
 
 # -------------------------------------------------
 # Get data from AWS RDS

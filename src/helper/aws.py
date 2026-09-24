@@ -196,7 +196,6 @@ def read_processed_rds(code_bss: str, end_date: date) -> pd.DataFrame:
     Intérroge la base de données RDS
         -> connexion a postgre RDS AWS
     """
-    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
     engine = create_engine(db_uri)    
     query = text("""
@@ -218,7 +217,6 @@ def read_forecast_rds(code_bss: str, horizon: Literal[14, 30], start_date: date)
         -> connexion a postgre RDS AWS
         -> select * from spli_forecast where horizon = horizon and date_train= end_date
     """
-    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
     db_uri = os.environ["NAPPECAST_BACKEND_STORE_URI"]
     engine = create_engine(db_uri)
     query = text("""
