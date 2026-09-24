@@ -27,15 +27,15 @@ def _make_daily(n_days: int = 200, seed: int = 42) -> pd.DataFrame:
     for col in DAILY_FEATURES:
         data[col] = rng.uniform(0, 10, n_days)
     df = pd.DataFrame(data, index=dates)
-    df.index.name = "ds"
+    df.index.name = "date_index"
     return df
 
 
 def _make_raw_df(n_days: int = 200, seed: int = 42) -> pd.DataFrame:
-    """DataFrame brut avec colonne ds (avant set_index), pour build_daily."""
+    """DataFrame brut avec colonne date_index (avant set_index), pour build_daily."""
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2020-01-01", periods=n_days, freq="D")
-    data = {"ds": dates, TARGET: rng.normal(5, 1, n_days)}
+    data = {"date_index": dates, TARGET: rng.normal(5, 1, n_days)}
     for col in DAILY_FEATURES:
         data[col] = rng.uniform(0, 10, n_days)
     return pd.DataFrame(data)
