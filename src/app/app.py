@@ -14,14 +14,14 @@ from src.app.app_predictions import render_predictions
 from src.app.app_sidebar import render_sidebar
 from src.app.app_stats import render_stats
 from src.config import load_config
-from datetime import datetime
+from datetime import date
 from src.app import api_client
 
 #--------------------- VARIABLES ---------------------
 CONFIG = load_config()
 
 CODE_BSS    = ",".join(CONFIG["api"]["piezometer"]["code_bss"])
-DATE_TRAIN  = datetime.now()
+DATE_TRAIN  = date.today()
 #---------------------  Configuration section ---------------------
 st.set_page_config(
     page_title='NappeCast',

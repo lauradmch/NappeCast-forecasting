@@ -8,7 +8,7 @@ import pandas as pd
 import requests
 
 from datetime import date
-from typing import Optional, Literal
+from typing import Literal
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 PIPELINE_SECRET = os.getenv("PIPELINE_SECRET")
