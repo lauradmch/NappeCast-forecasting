@@ -21,5 +21,5 @@ airflow.mapflowing.com {
 
 mlflow.mapflowing.com {
     import allowlist
-    reverse_proxy 172.31.8.230:5000
+    reverse_proxy 172.31.32.79:5000
 }
