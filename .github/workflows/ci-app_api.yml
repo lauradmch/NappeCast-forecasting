@@ -147,6 +147,7 @@ jobs:
             sudo mv /tmp/app_api-deploy/docker-compose.yml /opt/app_api/docker-compose.yml
             sudo mv /tmp/app_api-deploy/appapi.env         /opt/app_api/appapi.env
             sudo mv /tmp/app_api-deploy/deploy.sh           /opt/app_api/deploy.sh
+            sudo rm -rf /opt/app_api/Caddyfile
             sudo mv /tmp/app_api-deploy/Caddyfile           /opt/app_api/Caddyfile          
             sudo chown appuser:appuser /opt/app_api/docker-compose.yml /opt/app_api/Caddyfile /opt/app_api/appapi.env /opt/app_api/deploy.sh
             sudo chmod +x /opt/app_api/deploy.sh
