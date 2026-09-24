@@ -55,26 +55,27 @@ class StationRecord(BaseModel):
 
 
 class InterimRecord(BaseModel):
-    latitude: float
-    longitude: float
-    temperature_2m_max: float
-    sunrise: datetime
-    sunset: datetime
-    daylight_duration: float
-    precipitation_sum: float
-    shortwave_radiation_sum: float
-    et0_fao_evapotranspiration: float
-    cloud_cover_mean: float
-    pressure_msl_mean: float
-    wind_speed_10m_mean: float
-    soil_moisture_0_to_100cm_mean: float
-    soil_temperature_0_to_100cm_mean: float
+    # Clés (toujours présentes)
     code_bss: str
     date_index: date
-    bss_id: str
-    niveau_nappe_eau: float
-    mode_obtention: str
-    nom_producteur: str
+    latitude: float
+    longitude: float
+    temperature_2m_max: Optional[float] = None
+    sunrise: Optional[datetime] = None
+    sunset: Optional[datetime] = None
+    daylight_duration: Optional[float] = None
+    precipitation_sum: Optional[float] = None
+    shortwave_radiation_sum: Optional[float] = None
+    et0_fao_evapotranspiration: Optional[float] = None
+    cloud_cover_mean: Optional[float] = None
+    pressure_msl_mean: Optional[float] = None
+    wind_speed_10m_mean: Optional[float] = None
+    soil_moisture_0_to_100cm_mean: Optional[float] = None
+    soil_temperature_0_to_100cm_mean: Optional[float] = None
+    bss_id: Optional[str] = None
+    niveau_nappe_eau: Optional[float] = None
+    mode_obtention: Optional[str] = None
+    nom_producteur: Optional[str] = None
 
 
 class ProcessedRecord(BaseModel):
