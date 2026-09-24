@@ -228,36 +228,35 @@ def nappecast_daily_predict():
     @task(retries=0)
     def monitor(horizon: int) -> dict:
         """Compare l'erreur réelle récente au RMSE de validation du modèle @production."""
-        from src.monitoring.drift import run_performance_report
-
-        result = run_performance_report(horizon)
+        response = requests.post(
+            f"{API_BASE_URL}/monitoring/drift",
+            params={"H": horizon},
+            headers={"X-Pipeline-Secret": PIPELINE_SECRET},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        result = response.json()
 
         if result["status"] == "insufficient_data":
-            raise AirflowSkipException(
-                f"H={horizon} : {result['n_rows']} prédictions mûres, trop peu pour évaluer"
-            )
+            raise AirflowSkipException(f"H={horizon} : {result['n_rows']} prédictions mûres")
 
-        logger.info("H=%d | rmse=%.3f | ref=%.3f | ratio=%.2f | drift=%s",
-                    horizon, result["rmse"], result["reference_rmse"],
-                    result["rmse_ratio"], result["drift_detected"])
-
-        if result["drift_detected"]:
-            send_email(
-                to=ALERT_EMAIL,
-                subject=f"[NappeCast] Drift de performance détecté — H={horizon}j",
-                html_content=(
-                    f"<p>Le modèle <b>v{result['model_version']}</b> (H={horizon}j) se dégrade.</p>"
-                    f"<ul>"
-                    f"<li>RMSE observé : <b>{result['rmse']:.3f} m</b> "
-                    f"({result['window_start']} → {result['window_end']}, {result['n_rows']} prédictions)</li>"
-                    f"<li>RMSE de validation : {result['reference_rmse']:.3f} m</li>"
-                    f"<li>Ratio : <b>{result['rmse_ratio']:.2f}</b> (seuil {result['drift_threshold']})</li>"
-                    f"<li>Biais : {result['bias']:+.3f} m — couverture : {result['coverage']:.0%}</li>"
-                    f"</ul>"
-                    f"<p>Rapport Evidently joint dans MLflow (run <code>monitoring-H{horizon}</code>).</p>"
-                    f"<p>Action possible : déclencher <code>nappecast_monthly_retrain</code> hors planning.</p>"
-                ),
-            )
+        #if result["drift_detected"]:
+        #    send_email(
+        #        to=ALERT_EMAIL,
+        #        subject=f"[NappeCast] Drift de performance détecté — H={horizon}j",
+        #        html_content=(
+        #            f"<p>Le modèle <b>v{result['model_version']}</b> (H={horizon}j) se dégrade.</p>"
+        #            f"<ul>"
+        #            f"<li>RMSE observé : <b>{result['rmse']:.3f} m</b> "
+        #            f"({result['window_start']} → {result['window_end']}, {result['n_rows']} prédictions)</li>"
+        #            f"<li>RMSE de validation : {result['reference_rmse']:.3f} m</li>"
+        #            f"<li>Ratio : <b>{result['rmse_ratio']:.2f}</b> (seuil {result['drift_threshold']})</li>"
+        #            f"<li>Biais : {result['bias']:+.3f} m — couverture : {result['coverage']:.0%}</li>"
+        #            f"</ul>"
+        #            f"<p>Rapport Evidently joint dans MLflow (run <code>monitoring-H{horizon}</code>).</p>"
+        #            f"<p>Action possible : déclencher <code>nappecast_monthly_retrain</code> hors planning.</p>"
+        #        ),
+        #    )
 
         return result   
 

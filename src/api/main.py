@@ -46,6 +46,7 @@ from src.api.schemas import (
 
 from src.models.prophet_predict import predict
 from src.models.prophet_tune import run_tuning
+from src.monitoring.drift import run_performance_report
 
 #--------------------- VARIABLES ---------------------
 CONFIG = load_config()
@@ -115,6 +116,13 @@ def model_reload(model: Optional[str] = None, source: Optional[str] = None, hori
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Échec du rechargement du modèle : {e}")
     return get_model_info(model=model, source=source, horizon=horizon)
+
+@app.post("/monitoring/drift", tags=["monitoring"])
+def monitoring_drift(H: Literal[14, 30], _: None = Depends(verify_secret)):
+    try:
+        return run_performance_report(H)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Monitoring failed for H={H}: {e}")
 
 # -------------------------------------------------
 # Pipeline
