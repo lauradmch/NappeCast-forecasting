@@ -101,7 +101,6 @@ def load_data(code_bss: str, end_date: datetime)-> tuple[pd.DataFrame, pd.DataFr
     df_station      = api_client.post_station(code_bss)
     df_processed    = api_client.post_processed(code_bss, end_date)
 
-
     return df_station, df_processed
 
 df_station, df_processed = load_data(CODE_BSS, DATE_TRAIN)
