@@ -34,8 +34,6 @@ from airflow.exceptions import AirflowException
 from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
 
-from src.api.main import forecast
-
 # ---------------------------------------------------------------------------
 # logs
 # ---------------------------------------------------------------------------
