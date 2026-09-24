@@ -20,6 +20,8 @@ Déroulé :
     7. load_csv_to_rds              -> charge le CSV dans la table
     8. cleanup_tmp_file             -> supprime le fichier temporaire local
 """
+from __future__ import annotations
+
 import logging
 from xml.parsers.expat import model
 import requests
@@ -33,7 +35,6 @@ from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
 
 from src.api.main import forecast
-from __future__ import annotations
 
 # ---------------------------------------------------------------------------
 # logs

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR=/opt/apiapp
+APP_DIR=/opt/app_api
 ENV_FILE="$APP_DIR/.env.runtime"
-SECRET_ID="apiapp/prod-latest"
+SECRET_ID="appapi/prod-latest"
 REGION="eu-west-3"
 ECR_REGISTRY="844099234486.dkr.ecr.eu-west-3.amazonaws.com"
 
