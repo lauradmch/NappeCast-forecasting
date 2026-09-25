@@ -191,7 +191,7 @@ class TestFeaturingDataset:
     def test_temperature_rounding(self, daily_df):
         result = featuring_dataset(daily_df)
         # round(x, 2) → au plus 2 décimales
-        temps = result["Temperature_mean_30d"].dropna()
+        temps = result["temperature_mean_30d"].dropna()
         assert (temps.round(2) == temps).all()
 
 
