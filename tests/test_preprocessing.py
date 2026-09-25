@@ -21,9 +21,9 @@ def _make_preprocessed_df(n_days: int = 100, seed: int = 42) -> pd.DataFrame:
         "shortwave_radiation_sum":           rng.uniform(0, 30, n_days),
         "et0_fao_evapotranspiration":        rng.uniform(0, 8, n_days),
         "soil_temperature_0_to_100cm_mean":  rng.normal(12, 5, n_days),
-        "P_cum_90d":                         rng.uniform(0, 300, n_days),
-        "Peff_cum_90d":                      rng.uniform(-100, 200, n_days),
-        "Temperature_mean_90d":              rng.normal(12, 3, n_days),
+        "p_cum_90d":                         rng.uniform(0, 300, n_days),
+        "peff_cum_90d":                      rng.uniform(-100, 200, n_days),
+        "temperature_mean_90d":              rng.normal(12, 3, n_days),
         "niveau_nappe_eau":                  rng.normal(5, 1, n_days),
     })
 

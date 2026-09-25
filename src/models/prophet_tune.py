@@ -74,8 +74,8 @@ TARGET = "niveau_nappe_eau"
 DAILY_FEATURES = [
     "shortwave_radiation_sum", "et0_fao_evapotranspiration",
     "soil_temperature_0_to_100cm_mean",
-    "P_cum_90d", "Peff_cum_90d",
-    "Temperature_mean_90d",
+    "p_cum_90d", "peff_cum_90d",
+    "temperature_mean_90d",
 ]
 
 # Horizons to tune (days). Feature lag == H, so each is tuned separately.

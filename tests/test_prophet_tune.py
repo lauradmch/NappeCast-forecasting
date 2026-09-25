@@ -91,9 +91,9 @@ class TestRescoreParams:
             "shortwave_radiation_sum":           rng.uniform(0, 30, n),
             "et0_fao_evapotranspiration":        rng.uniform(0, 8, n),
             "soil_temperature_0_to_100cm_mean":  rng.normal(12, 5, n),
-            "P_cum_90d":                         rng.uniform(0, 300, n),
-            "Peff_cum_90d":                      rng.uniform(-100, 200, n),
-            "Temperature_mean_90d":              rng.normal(12, 3, n),
+            "p_cum_90d":                         rng.uniform(0, 300, n),
+            "peff_cum_90d":                      rng.uniform(-100, 200, n),
+            "temperature_mean_90d":              rng.normal(12, 3, n),
         })
 
     def _make_run_params(self) -> dict:

@@ -99,8 +99,8 @@ class ProcessedRecord(BaseModel):
     niveau_nappe_eau: float
     mode_obtention: str
     nom_producteur: str
-    p_cum_30d: Optional[float] = None
-    p_cum_90d: Optional[float] = None
+    P_cum_30d: Optional[float] = None
+    P_cum_90d: Optional[float] = None
     peff_cum_30d: Optional[float] = None
     peff_cum_90d: Optional[float] = None
     temperature_mean_30d: Optional[float] = None
