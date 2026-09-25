@@ -11,6 +11,7 @@ def preprocessing(df, test_size=30):
     4. Split X / y
     Returns X_train, X_test, y_train, y_test.
     """
+    
     df = df.copy()
     df = df.set_index("date_index", drop=False)
     df.index = pd.to_datetime(df.index)
