@@ -90,24 +90,24 @@ def featuring_dataset(df: pd.DataFrame) -> pd.DataFrame:
     df[cols] = df[cols].sort_index().asfreq("D").interpolate()
     
     # Computation of cumulative precipitation (during the last 30-90 days)
-    df['P_cum_30d'] = df['precipitation_sum'].rolling(window=30).sum()
-    df['P_cum_90d'] = df['precipitation_sum'].rolling(window=90).sum()
+    df['p_cum_30d'] = df['precipitation_sum'].rolling(window=30).sum()
+    df['p_cum_90d'] = df['precipitation_sum'].rolling(window=90).sum()
     
     # Computation of cumulative effective precipitation (during the last 30 & 90 days)
-    df['Peff_cum_30d'] = (df['precipitation_sum'] - df['et0_fao_evapotranspiration']).rolling(window=30).sum()
-    df['Peff_cum_90d'] = (df['precipitation_sum'] - df['et0_fao_evapotranspiration']).rolling(window=90).sum()
+    df['peff_cum_30d'] = (df['precipitation_sum'] - df['et0_fao_evapotranspiration']).rolling(window=30).sum()
+    df['peff_cum_90d'] = (df['precipitation_sum'] - df['et0_fao_evapotranspiration']).rolling(window=90).sum()
     
     # Computation of the mean temperature (during the last 30 and 90 days)
-    df['Temperature_mean_30d'] = round(df['soil_temperature_0_to_100cm_mean'].rolling(window=30).mean(), 2)
-    df['Temperature_mean_90d'] = round(df['soil_temperature_0_to_100cm_mean'].rolling(window=90).mean(), 2)
+    df['temperature_mean_30d'] = round(df['soil_temperature_0_to_100cm_mean'].rolling(window=30).mean(), 2)
+    df['temperature_mean_90d'] = round(df['soil_temperature_0_to_100cm_mean'].rolling(window=90).mean(), 2)
 
     # Filling the NaN generated during the earliest period of the dataframe (no computation of the cumulative data)
-    df['P_cum_30d']             = df['P_cum_30d'].fillna(df['P_cum_30d'].dropna().iloc[0])
-    df['P_cum_90d']             = df['P_cum_90d'].fillna(df['P_cum_90d'].dropna().iloc[0])
-    df['Peff_cum_30d']          = df['Peff_cum_30d'].fillna(df['Peff_cum_30d'].dropna().iloc[0])
-    df['Peff_cum_90d']          = df['Peff_cum_90d'].fillna(df['Peff_cum_90d'].dropna().iloc[0])
-    df['Temperature_mean_30d']   = df['Temperature_mean_30d'].fillna(df['Temperature_mean_30d'].dropna().iloc[0])
-    df['Temperature_mean_90d']  = df['Temperature_mean_90d'].fillna(df['Temperature_mean_90d'].dropna().iloc[0])
+    df['p_cum_30d']             = df['p_cum_30d'].fillna(df['p_cum_30d'].dropna().iloc[0])
+    df['p_cum_90d']             = df['p_cum_90d'].fillna(df['p_cum_90d'].dropna().iloc[0])
+    df['peff_cum_30d']          = df['peff_cum_30d'].fillna(df['peff_cum_30d'].dropna().iloc[0])
+    df['peff_cum_90d']          = df['peff_cum_90d'].fillna(df['peff_cum_90d'].dropna().iloc[0])
+    df['temperature_mean_30d']   = df['temperature_mean_30d'].fillna(df['temperature_mean_30d'].dropna().iloc[0])
+    df['temperature_mean_90d']  = df['temperature_mean_90d'].fillna(df['temperature_mean_90d'].dropna().iloc[0])
 
     logger.info(f"featuring_dataset terminé !")
     return df
