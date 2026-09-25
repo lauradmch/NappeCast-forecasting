@@ -98,7 +98,7 @@ class TestPreprocessing:
     def test_missing_feature_col_raises(self):
         """Un DataFrame sans une colonne requise doit lever une KeyError."""
         df_bad = _make_preprocessed_df()
-        df_bad = df_bad.drop(columns=["P_cum_90d"])
+        df_bad = df_bad.drop(columns=["p_cum_90d"])
         with pytest.raises(KeyError):
             preprocessing(df_bad)
 
