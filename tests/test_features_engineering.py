@@ -158,15 +158,15 @@ class TestFeaturingDataset:
 
     def test_rolling_columns_present(self, daily_df):
         result = featuring_dataset(daily_df)
-        for col in ["P_cum_30d", "P_cum_90d", "Peff_cum_30d", "Peff_cum_90d",
-                    "Temperature_mean_30d", "Temperature_mean_90d"]:
+        for col in ["p_cum_30d", "p_cum_90d", "peff_cum_30d", "peff_cum_90d",
+                    "temperature_mean_30d", "temperature_mean_90d"]:
             assert col in result.columns, f"Colonne manquante : {col}"
 
     def test_no_nan_in_rolling_cols(self, daily_df):
         """Les NaN de début de rolling doivent être comblés par fillna."""
         result = featuring_dataset(daily_df)
-        rolling_cols = ["P_cum_30d", "P_cum_90d", "Peff_cum_30d", "Peff_cum_90d",
-                        "Temperature_mean_30d", "Temperature_mean_90d"]
+        rolling_cols = ["p_cum_30d", "p_cum_90d", "peff_cum_30d", "peff_cum_90d",
+                        "temperature_mean_30d", "temperature_mean_90d"]
         assert result[rolling_cols].isna().sum().sum() == 0
 
     def test_no_duplicated_index(self, daily_df):
