@@ -72,9 +72,11 @@ RESULTS_DIR = Path(__file__).resolve().parent
 
 TARGET = "niveau_nappe_eau"
 DAILY_FEATURES = [
-    "shortwave_radiation_sum", "et0_fao_evapotranspiration",
+    "shortwave_radiation_sum", 
+    "et0_fao_evapotranspiration",
     "soil_temperature_0_to_100cm_mean",
-    "p_cum_90d", "peff_cum_90d",
+    "p_cum_90d", 
+    "peff_cum_90d",
     "temperature_mean_90d",
 ]
 
