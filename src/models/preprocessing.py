@@ -20,9 +20,9 @@ def preprocessing(df, test_size=30):
         "shortwave_radiation_sum",
         "et0_fao_evapotranspiration",
         "soil_temperature_0_to_100cm_mean",
-        "P_cum_90d",
-        "Peff_cum_90d",
-        "Temperature_mean_90d"
+        "p_cum_90d",
+        "peff_cum_90d",
+        "temperature_mean_90d"
     ]
     target_col = "niveau_nappe_eau"
 
