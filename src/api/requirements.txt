@@ -13,4 +13,4 @@ requests==2.34.2
 mlflow==3.16.1
 prophet==1.4.0
 plotly==7.1.0
-psycopg2-binary==2.9.13
+psycopg[binary]==3.2.3
