@@ -28,6 +28,7 @@ def _make_preprocessed_df(n_days: int = 100, seed: int = 42) -> pd.DataFrame:
     })
 
 
+
 @pytest.fixture
 def df() -> pd.DataFrame:
     return _make_preprocessed_df()
