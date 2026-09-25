@@ -60,9 +60,9 @@ class TestPreprocessing:
             "shortwave_radiation_sum",
             "et0_fao_evapotranspiration",
             "soil_temperature_0_to_100cm_mean",
-            "P_cum_90d",
-            "Peff_cum_90d",
-            "Temperature_mean_90d",
+            "p_cum_90d",
+            "peff_cum_90d",
+            "temperature_mean_90d",
         ]
         X_train, X_test, _, _ = preprocessing(df)
         assert list(X_train.columns) == expected
