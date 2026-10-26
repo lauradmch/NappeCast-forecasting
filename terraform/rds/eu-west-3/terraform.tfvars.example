@@ -1,0 +1,12 @@
+aws_region = "eu-west-3"
+
+# UUID de la clé KMS (console AWS > KMS), sans l'ARN complet
+rds_kms_key_id = ""
+
+rds_monitoring_role_name = "rds-monitoring-role"
+
+# Groupes de sécurité de la base (console AWS > EC2 > Security Groups)
+rds_security_group_ids = ""
+
+# Nom de l'administrateur PostgreSQL
+rds_username = ""
