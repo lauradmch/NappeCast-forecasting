@@ -76,7 +76,7 @@ resource "aws_instance" "tfer--i-017d82908629e09cd_app-server" {
   }
 
   tenancy                = "default"
-  user_data_base64       = "IyEvYmluL2Jhc2gKeXVtIHVwZGF0ZSAteQp5dW0gaW5zdGFsbCAteSBkb2NrZXIgZG9ja2VyLWNvbXBvc2UtcGx1Z2luCnN5c3RlbWN0bCBlbmFibGUgZG9ja2VyCnN5c3RlbWN0bCBzdGFydCBkb2NrZXIK"
+  user_data_base64       = filebase64("${path.module}/scripts/app_server_user_data.sh")
   vpc_security_group_ids = ["sg-068b0a101c18effad"]
 }
 
@@ -163,7 +163,7 @@ resource "aws_instance" "tfer--i-06b315e78fa277e77_mlflow-server-sqlite" {
   }
 
   tenancy                = "default"
-  user_data_base64       = "IyEvYmluL2Jhc2gKeXVtIHVwZGF0ZSAteQoKZmFsbG9jYXRlIC1sIDFHIC9zd2FwZmlsZQpjaG1vZCA2MDAgL3N3YXBmaWxlCm1rc3dhcCAvc3dhcGZpbGUKc3dhcG9uIC9zd2FwZmlsZQplY2hvICcvc3dhcGZpbGUgc3dhcCBzd2FwIGRlZmF1bHRzIDAgMCcgPj4gL2V0Yy9mc3RhYgoKeXVtIGluc3RhbGwgLXkgZG9ja2VyCnN5c3RlbWN0bCBlbmFibGUgZG9ja2VyCnN5c3RlbWN0bCBzdGFydCBkb2NrZXIKCm1rZGlyIC1wIC91c3IvbG9jYWwvbGliL2RvY2tlci9jbGktcGx1Z2lucwpjdXJsIC1TTCBodHRwczovL2dpdGh1Yi5jb20vZG9ja2VyL2NvbXBvc2UvcmVsZWFzZXMvbGF0ZXN0L2Rvd25sb2FkL2RvY2tlci1jb21wb3NlLWxpbnV4LXg4Nl82NCAtbyAvdXNyL2xvY2FsL2xpYi9kb2NrZXIvY2xpLXBsdWdpbnMvZG9ja2VyLWNvbXBvc2UKY2htb2QgK3ggL3Vzci9sb2NhbC9saWIvZG9ja2VyL2NsaS1wbHVnaW5zL2RvY2tlci1jb21wb3NlCgpCVUlMRFhfVVJMPSQoY3VybCAtcyBodHRwczovL2FwaS5naXRodWIuY29tL3JlcG9zL2RvY2tlci9idWlsZHgvcmVsZWFzZXMvbGF0ZXN0IHwgZ3JlcCAiYnJvd3Nlcl9kb3dubG9hZF91cmwuKmxpbnV4LWFtZDY0XCIiIHwgY3V0IC1kICciJyAtZiA0IHwgaGVhZCAtbiAxKQpjdXJsIC1TTCAiJEJVSUxEWF9VUkwiIC1vIC91c3IvbG9jYWwvbGliL2RvY2tlci9jbGktcGx1Z2lucy9kb2NrZXItYnVpbGR4CmNobW9kICt4IC91c3IvbG9jYWwvbGliL2RvY2tlci9jbGktcGx1Z2lucy9kb2NrZXItYnVpbGR4Cgp5dW0gaW5zdGFsbCAteSBweXRob24zLXBpcApwaXAzIGluc3RhbGwgYm90bzMK"
+  user_data_base64       = filebase64("${path.module}/scripts/mlflow_server_user_data.sh")
   vpc_security_group_ids = ["sg-06cdd4979e8928cf2"]
 }
 
@@ -245,6 +245,6 @@ resource "aws_instance" "tfer--i-0c770608e3877ec43_airflow-orchestrator" {
   }
 
   tenancy                = "default"
-  user_data_base64       = "IyEvYmluL2Jhc2gKeXVtIHVwZGF0ZSAteQoKIyAtLS0gSW5zdGFsbGF0aW9uIGRvY2tlciAtLS0KeXVtIGluc3RhbGwgLXkgZG9ja2VyCnN5c3RlbWN0bCBlbmFibGUgZG9ja2VyCnN5c3RlbWN0bCBzdGFydCBkb2NrZXIKCm1rZGlyIC1wIC91c3IvbG9jYWwvbGliL2RvY2tlci9jbGktcGx1Z2lucwpjdXJsIC1TTCBodHRwczovL2dpdGh1Yi5jb20vZG9ja2VyL2NvbXBvc2UvcmVsZWFzZXMvbGF0ZXN0L2Rvd25sb2FkL2RvY2tlci1jb21wb3NlLWxpbnV4LXg4Nl82NCAtbyAvdXNyL2xvY2FsL2xpYi9kb2NrZXIvY2xpLXBsdWdpbnMvZG9ja2VyLWNvbXBvc2UKY2htb2QgK3ggL3Vzci9sb2NhbC9saWIvZG9ja2VyL2NsaS1wbHVnaW5zL2RvY2tlci1jb21wb3NlCgpCVUlMRFhfVVJMPSQoY3VybCAtcyBodHRwczovL2FwaS5naXRodWIuY29tL3JlcG9zL2RvY2tlci9idWlsZHgvcmVsZWFzZXMvbGF0ZXN0IHwgZ3JlcCAiYnJvd3Nlcl9kb3dubG9hZF91cmwuKmxpbnV4LWFtZDY0XCIiIHwgY3V0IC1kICciJyAtZiA0IHwgaGVhZCAtbiAxKQpjdXJsIC1TTCAiJEJVSUxEWF9VUkwiIC1vIC91c3IvbG9jYWwvbGliL2RvY2tlci9jbGktcGx1Z2lucy9kb2NrZXItYnVpbGR4CmNobW9kICt4IC91c3IvbG9jYWwvbGliL2RvY2tlci9jbGktcGx1Z2lucy9kb2NrZXItYnVpbGR4Cgp5dW0gaW5zdGFsbCAteSBweXRob24zLXBpcApwaXAzIGluc3RhbGwgYm90bzMK"
+  user_data_base64       = filebase64("${path.module}/scripts/airflow_orchestrator_user_data.sh")
   vpc_security_group_ids = ["sg-0d34dad32a2811316"]
 }
