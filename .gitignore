@@ -30,7 +30,7 @@ data/external/*
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 !data/external/.gitkeep
-terraform/*
+
 
 # --- Modèles entraînés / checkpoints ---
 models/*
@@ -70,3 +70,31 @@ Thumbs.db
 # --- AWS
 nappecast-ec2-key.pem
 
+# --- terraform
+# Terraform : dossier de travail local
+.terraform/
+.terraform.tfstate.lock.info
+
+# Fichiers d'état
+*.tfstate
+*.tfstate.*
+
+# Fichiers de plan
+*.tfplan
+tfplan
+plan.out
+
+# Variables réelles
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# Fichiers de surcharge locaux
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Journaux de plantage
+crash.log
+crash.*.log
