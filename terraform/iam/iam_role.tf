@@ -178,7 +178,7 @@ POLICY
 
   inline_policy {
     name   = "GetSecretsManagerKey"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"secretsmanager:GetSecretValue\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:secretsmanager:eu-west-3:844099234486:secret:airflow/prod*\",\"Sid\":\"ReadSecret\"},{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"EcrAuth\"},{\"Action\":[\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:844099234486:repository/airflow\",\"Sid\":\"EcrPull\"}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"secretsmanager:GetSecretValue\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:secretsmanager:eu-west-3:${data.aws_caller_identity.current.account_id}:secret:airflow/prod*\",\"Sid\":\"ReadSecret\"},{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"EcrAuth\"},{\"Action\":[\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/airflow\",\"Sid\":\"EcrPull\"}]}"
   }
 
   inline_policy {
@@ -206,7 +206,7 @@ resource "aws_iam_role" "tfer--github-actions-deploy" {
       },
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::844099234486:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
       }
     }
   ],
@@ -216,22 +216,22 @@ POLICY
 
   inline_policy {
     name   = "github-actions-ecr"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"ecr:DescribeImages\",\"ecr:BatchCheckLayerAvailability\",\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\",\"ecr:InitiateLayerUpload\",\"ecr:UploadLayerPart\",\"ecr:CompleteLayerUpload\",\"ecr:PutImage\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:844099234486:repository/mlflow\"}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"ecr:DescribeImages\",\"ecr:BatchCheckLayerAvailability\",\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\",\"ecr:InitiateLayerUpload\",\"ecr:UploadLayerPart\",\"ecr:CompleteLayerUpload\",\"ecr:PutImage\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/mlflow\"}]}"
   }
 
   inline_policy {
     name   = "github-actions-ecr-airflow"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"ecr:DescribeImages\",\"ecr:BatchCheckLayerAvailability\",\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\",\"ecr:InitiateLayerUpload\",\"ecr:UploadLayerPart\",\"ecr:CompleteLayerUpload\",\"ecr:PutImage\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:844099234486:repository/airflow\"}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"ecr:DescribeImages\",\"ecr:BatchCheckLayerAvailability\",\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\",\"ecr:InitiateLayerUpload\",\"ecr:UploadLayerPart\",\"ecr:CompleteLayerUpload\",\"ecr:PutImage\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/airflow\"}]}"
   }
 
   inline_policy {
     name   = "github-actions-ecr-streamlit"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"EcrAuth\"},{\"Action\":[\"ecr:DescribeImages\",\"ecr:BatchCheckLayerAvailability\",\"ecr:GetDownloadUrlForLayer\",\"ecr:BatchGetImage\",\"ecr:InitiateLayerUpload\",\"ecr:UploadLayerPart\",\"ecr:CompleteLayerUpload\",\"ecr:PutImage\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:ecr:eu-west-3:844099234486:repository/streamlit\",\"arn:aws:ecr:eu-west-3:844099234486:repository/api\"],\"Sid\":\"EcrPushApiapp\"}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"EcrAuth\"},{\"Action\":[\"ecr:DescribeImages\",\"ecr:BatchCheckLayerAvailability\",\"ecr:GetDownloadUrlForLayer\",\"ecr:BatchGetImage\",\"ecr:InitiateLayerUpload\",\"ecr:UploadLayerPart\",\"ecr:CompleteLayerUpload\",\"ecr:PutImage\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/streamlit\",\"arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/api\"],\"Sid\":\"EcrPushApiapp\"}]}"
   }
 
   inline_policy {
     name   = "sg-ssh"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ec2:AuthorizeSecurityGroupIngress\",\"ec2:RevokeSecurityGroupIngress\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:ec2:eu-west-3:844099234486:security-group/sg-06cdd4979e8928cf2\",\"arn:aws:ec2:eu-west-3:844099234486:security-group/sg-0d34dad32a2811316\",\"arn:aws:ec2:eu-west-3:844099234486:security-group/sg-068b0a101c18effad\"],\"Sid\":\"SshTemporaireRunner\"},{\"Action\":\"ecr:DescribeImages\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:844099234486:repository/mlflow\",\"Sid\":\"VerifTagECR\"}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ec2:AuthorizeSecurityGroupIngress\",\"ec2:RevokeSecurityGroupIngress\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:security-group/sg-06cdd4979e8928cf2\",\"arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:security-group/sg-0d34dad32a2811316\",\"arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:security-group/sg-068b0a101c18effad\"],\"Sid\":\"SshTemporaireRunner\"},{\"Action\":\"ecr:DescribeImages\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/mlflow\",\"Sid\":\"VerifTagECR\"}]}"
   }
 
   max_session_duration = "3600"
@@ -278,7 +278,7 @@ POLICY
 
   inline_policy {
     name   = "GetSecretsManagerKey"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"secretsmanager:GetSecretValue\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:secretsmanager:eu-west-3:844099234486:secret:mlflow/prod*\",\"Sid\":\"ReadSecret\"},{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"EcrAuth\"},{\"Action\":[\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:844099234486:repository/mlflow\",\"Sid\":\"EcrPull\"},{\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:s3:::nappecast/mlflow-artifacts/*\",\"Sid\":\"MlflowArtifacts\"},{\"Action\":\"s3:ListBucket\",\"Condition\":{\"StringLike\":{\"s3:prefix\":[\"mlflow-artifacts/*\"]}},\"Effect\":\"Allow\",\"Resource\":\"arn:aws:s3:::nappecast\",\"Sid\":\"MlflowArtifactsList\"}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"secretsmanager:GetSecretValue\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:secretsmanager:eu-west-3:${data.aws_caller_identity.current.account_id}:secret:mlflow/prod*\",\"Sid\":\"ReadSecret\"},{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"EcrAuth\"},{\"Action\":[\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/mlflow\",\"Sid\":\"EcrPull\"},{\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:s3:::nappecast/mlflow-artifacts/*\",\"Sid\":\"MlflowArtifacts\"},{\"Action\":\"s3:ListBucket\",\"Condition\":{\"StringLike\":{\"s3:prefix\":[\"mlflow-artifacts/*\"]}},\"Effect\":\"Allow\",\"Resource\":\"arn:aws:s3:::nappecast\",\"Sid\":\"MlflowArtifactsList\"}]}"
   }
 
   inline_policy {
@@ -310,7 +310,7 @@ POLICY
 
   inline_policy {
     name   = "GetSecretsManagerKey"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"secretsmanager:GetSecretValue\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:secretsmanager:eu-west-3:844099234486:secret:appapi/prod-latest-*\",\"Sid\":\"ReadSecret\"},{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"EcrAuth\"},{\"Action\":[\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:844099234486:repository/appapi\",\"Sid\":\"EcrPull\"}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"secretsmanager:GetSecretValue\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:secretsmanager:eu-west-3:${data.aws_caller_identity.current.account_id}:secret:appapi/prod-latest-*\",\"Sid\":\"ReadSecret\"},{\"Action\":\"ecr:GetAuthorizationToken\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"EcrAuth\"},{\"Action\":[\"ecr:BatchGetImage\",\"ecr:GetDownloadUrlForLayer\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/appapi\",\"Sid\":\"EcrPull\"}]}"
   }
 
   managed_policy_arns  = ["arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly", "arn:aws:iam::aws:policy/AmazonS3FullAccess", "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
@@ -337,7 +337,7 @@ POLICY
 
   inline_policy {
     name   = "nappecast-start-stop-instances"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ec2:StartInstances\",\"ec2:StopInstances\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:ec2:eu-west-3:844099234486:instance/i-017d82908629e09cd\",\"arn:aws:ec2:eu-west-3:844099234486:instance/i-06b315e78fa277e77\"]}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ec2:StartInstances\",\"ec2:StopInstances\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:instance/i-017d82908629e09cd\",\"arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:instance/i-06b315e78fa277e77\"]}]}"
   }
 
   max_session_duration = "3600"
@@ -363,7 +363,7 @@ POLICY
 
   inline_policy {
     name   = "nappecast-invoke-trigger-lambda"
-    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"lambda:InvokeFunction\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:lambda:eu-west-3:844099234486:function:nappecast-trigger-collect\"}]}"
+    policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"lambda:InvokeFunction\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:lambda:eu-west-3:${data.aws_caller_identity.current.account_id}:function:nappecast-trigger-collect\"}]}"
   }
 
   max_session_duration = "3600"

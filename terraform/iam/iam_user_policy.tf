@@ -15,14 +15,14 @@ resource "aws_iam_user_policy" "tfer--nappecast-admin_nappecast-lambda-deploy" {
         "lambda:TagResource"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:lambda:eu-west-3:844099234486:function:nappecast-*"
+      "Resource": "arn:aws:lambda:eu-west-3:${data.aws_caller_identity.current.account_id}:function:nappecast-*"
     },
     {
       "Action": "iam:PassRole",
       "Effect": "Allow",
       "Resource": [
-        "arn:aws:iam::844099234486:role/nappecast-trigger-lambda-role",
-        "arn:aws:iam::844099234486:role/nappecast-scheduler-invoke-trigger-role"
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/nappecast-trigger-lambda-role",
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/nappecast-scheduler-invoke-trigger-role"
       ]
     }
   ],

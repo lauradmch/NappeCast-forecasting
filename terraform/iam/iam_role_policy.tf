@@ -7,7 +7,7 @@ resource "aws_iam_role_policy" "tfer--airflow-ec2-role_GetSecretsManagerKey" {
     {
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
-      "Resource": "arn:aws:secretsmanager:eu-west-3:844099234486:secret:airflow/prod*",
+      "Resource": "arn:aws:secretsmanager:eu-west-3:${data.aws_caller_identity.current.account_id}:secret:airflow/prod*",
       "Sid": "ReadSecret"
     },
     {
@@ -22,7 +22,7 @@ resource "aws_iam_role_policy" "tfer--airflow-ec2-role_GetSecretsManagerKey" {
         "ecr:GetDownloadUrlForLayer"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:ecr:eu-west-3:844099234486:repository/airflow",
+      "Resource": "arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/airflow",
       "Sid": "EcrPull"
     }
   ],
@@ -104,7 +104,7 @@ resource "aws_iam_role_policy" "tfer--github-actions-deploy_github-actions-ecr" 
         "ecr:PutImage"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:ecr:eu-west-3:844099234486:repository/mlflow"
+      "Resource": "arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/mlflow"
     }
   ],
   "Version": "2012-10-17"
@@ -137,7 +137,7 @@ resource "aws_iam_role_policy" "tfer--github-actions-deploy_github-actions-ecr-a
         "ecr:PutImage"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:ecr:eu-west-3:844099234486:repository/airflow"
+      "Resource": "arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/airflow"
     }
   ],
   "Version": "2012-10-17"
@@ -172,8 +172,8 @@ resource "aws_iam_role_policy" "tfer--github-actions-deploy_github-actions-ecr-s
       ],
       "Effect": "Allow",
       "Resource": [
-        "arn:aws:ecr:eu-west-3:844099234486:repository/streamlit",
-        "arn:aws:ecr:eu-west-3:844099234486:repository/api"
+        "arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/streamlit",
+        "arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/api"
       ],
       "Sid": "EcrPushApiapp"
     }
@@ -198,16 +198,16 @@ resource "aws_iam_role_policy" "tfer--github-actions-deploy_sg-ssh" {
       ],
       "Effect": "Allow",
       "Resource": [
-        "arn:aws:ec2:eu-west-3:844099234486:security-group/sg-06cdd4979e8928cf2",
-        "arn:aws:ec2:eu-west-3:844099234486:security-group/sg-0d34dad32a2811316",
-        "arn:aws:ec2:eu-west-3:844099234486:security-group/sg-068b0a101c18effad"
+        "arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:security-group/sg-06cdd4979e8928cf2",
+        "arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:security-group/sg-0d34dad32a2811316",
+        "arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:security-group/sg-068b0a101c18effad"
       ],
       "Sid": "SshTemporaireRunner"
     },
     {
       "Action": "ecr:DescribeImages",
       "Effect": "Allow",
-      "Resource": "arn:aws:ecr:eu-west-3:844099234486:repository/mlflow",
+      "Resource": "arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/mlflow",
       "Sid": "VerifTagECR"
     }
   ],
@@ -227,7 +227,7 @@ resource "aws_iam_role_policy" "tfer--mlflow-ec2-role2_GetSecretsManagerKey" {
     {
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
-      "Resource": "arn:aws:secretsmanager:eu-west-3:844099234486:secret:mlflow/prod*",
+      "Resource": "arn:aws:secretsmanager:eu-west-3:${data.aws_caller_identity.current.account_id}:secret:mlflow/prod*",
       "Sid": "ReadSecret"
     },
     {
@@ -242,7 +242,7 @@ resource "aws_iam_role_policy" "tfer--mlflow-ec2-role2_GetSecretsManagerKey" {
         "ecr:GetDownloadUrlForLayer"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:ecr:eu-west-3:844099234486:repository/mlflow",
+      "Resource": "arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/mlflow",
       "Sid": "EcrPull"
     },
     {
@@ -312,7 +312,7 @@ resource "aws_iam_role_policy" "tfer--nappecast-ec2-role_GetSecretsManagerKey" {
     {
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
-      "Resource": "arn:aws:secretsmanager:eu-west-3:844099234486:secret:appapi/prod-latest-*",
+      "Resource": "arn:aws:secretsmanager:eu-west-3:${data.aws_caller_identity.current.account_id}:secret:appapi/prod-latest-*",
       "Sid": "ReadSecret"
     },
     {
@@ -327,7 +327,7 @@ resource "aws_iam_role_policy" "tfer--nappecast-ec2-role_GetSecretsManagerKey" {
         "ecr:GetDownloadUrlForLayer"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:ecr:eu-west-3:844099234486:repository/appapi",
+      "Resource": "arn:aws:ecr:eu-west-3:${data.aws_caller_identity.current.account_id}:repository/appapi",
       "Sid": "EcrPull"
     }
   ],
@@ -351,8 +351,8 @@ resource "aws_iam_role_policy" "tfer--nappecast-scheduler-ec2-role_nappecast-sta
       ],
       "Effect": "Allow",
       "Resource": [
-        "arn:aws:ec2:eu-west-3:844099234486:instance/i-017d82908629e09cd",
-        "arn:aws:ec2:eu-west-3:844099234486:instance/i-06b315e78fa277e77"
+        "arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:instance/i-017d82908629e09cd",
+        "arn:aws:ec2:eu-west-3:${data.aws_caller_identity.current.account_id}:instance/i-06b315e78fa277e77"
       ]
     }
   ],
@@ -372,7 +372,7 @@ resource "aws_iam_role_policy" "tfer--nappecast-scheduler-invoke-trigger-role_na
     {
       "Action": "lambda:InvokeFunction",
       "Effect": "Allow",
-      "Resource": "arn:aws:lambda:eu-west-3:844099234486:function:nappecast-trigger-collect"
+      "Resource": "arn:aws:lambda:eu-west-3:${data.aws_caller_identity.current.account_id}:function:nappecast-trigger-collect"
     }
   ],
   "Version": "2012-10-17"
