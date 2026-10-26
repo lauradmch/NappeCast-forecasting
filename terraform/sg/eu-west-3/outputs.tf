@@ -1,17 +1,17 @@
-output "aws_security_group_rule_tfer--sg-0d34dad32a2811316_egress_-1_-1_-1_0-002E-0-002E-0-002E-0-002F-0_id" {
-  value = "${aws_security_group_rule.tfer--sg-0d34dad32a2811316_egress_-1_-1_-1_0-002E-0-002E-0-002E-0-002F-0.id}"
+output "aws_security_group_rule_airflow_egress_all_id" {
+  value = "${aws_security_group_rule.airflow_egress_all.id}"
 }
 
-output "aws_security_group_rule_tfer--sg-0d34dad32a2811316_ingress_tcp_22_22_86-002E-213-002E-23-002E-196-002F-32_id" {
-  value = "${aws_security_group_rule.tfer--sg-0d34dad32a2811316_ingress_tcp_22_22_86-002E-213-002E-23-002E-196-002F-32.id}"
+output "aws_security_group_rule_airflow_ssh_admin_id" {
+  value = "${aws_security_group_rule.airflow_ssh_admin.id}"
 }
 
-output "aws_security_group_rule_tfer--sg-0d34dad32a2811316_ingress_tcp_8080_8080_86-002E-213-002E-23-002E-196-002F-32_id" {
-  value = "${aws_security_group_rule.tfer--sg-0d34dad32a2811316_ingress_tcp_8080_8080_86-002E-213-002E-23-002E-196-002F-32.id}"
+output "aws_security_group_rule_airflow_ui_admin_id" {
+  value = "${aws_security_group_rule.airflow_ui_admin.id}"
 }
 
-output "aws_security_group_rule_tfer--sg-0d34dad32a2811316_ingress_tcp_8080_8080_86-002E-213-002E-23-002E-196-002F-32_sg-068b0a101c18effad_id" {
-  value = "${aws_security_group_rule.tfer--sg-0d34dad32a2811316_ingress_tcp_8080_8080_86-002E-213-002E-23-002E-196-002F-32_sg-068b0a101c18effad.id}"
+output "aws_security_group_rule_airflow_ui_from_app_id" {
+  value = "${aws_security_group_rule.airflow_ui_from_app.id}"
 }
 
 output "aws_security_group_tfer--airflow-ec2-sg_sg-0d34dad32a2811316_id" {

@@ -16,10 +16,10 @@ resource "aws_security_group" "tfer--default_sg-0bbe212fba40c1945" {
   }
 
   ingress {
-    cidr_blocks     = ["86.213.23.196/32"]
+    cidr_blocks     = [var.admin_cidr]
     from_port       = "5432"
     protocol        = "tcp"
-    security_groups = ["${data.terraform_remote_state.sg.outputs.aws_security_group_tfer--mlflow-ec2-sg_sg-0b61e357948375b5f_id}"]
+    security_groups = [aws_security_group.tfer--mlflow-ec2-sg_sg-0b61e357948375b5f.id]
     self            = "false"
     to_port         = "5432"
   }
@@ -47,7 +47,7 @@ resource "aws_security_group" "tfer--launch-wizard-1_sg-0d141991cb2b70233" {
   }
 
   ingress {
-    cidr_blocks = ["86.213.23.196/32"]
+    cidr_blocks = [var.admin_cidr]
     from_port   = "22"
     protocol    = "tcp"
     self        = "false"
@@ -139,16 +139,16 @@ resource "aws_security_group" "tfer--mlflow-ec2-sg-v2_sg-06cdd4979e8928cf2" {
   }
 
   ingress {
-    cidr_blocks     = ["83.114.10.235/32", "86.213.23.196/32", "89.2.16.76/32"]
+    cidr_blocks     = var.team_cidr_blocks
     from_port       = "5000"
     protocol        = "tcp"
-    security_groups = ["${data.terraform_remote_state.sg.outputs.aws_security_group_tfer--nappecast-ec2-group_sg-068b0a101c18effad_id}"]
+    security_groups = [aws_security_group.tfer--nappecast-ec2-group_sg-068b0a101c18effad.id]
     self            = "false"
     to_port         = "5000"
   }
 
   ingress {
-    cidr_blocks = ["86.213.23.196/32"]
+    cidr_blocks = [var.admin_cidr]
     from_port   = "22"
     protocol    = "tcp"
     self        = "false"
@@ -171,7 +171,7 @@ resource "aws_security_group" "tfer--mlflow-ec2-sg_sg-0b61e357948375b5f" {
   }
 
   ingress {
-    cidr_blocks = ["86.213.23.196/32"]
+    cidr_blocks = [var.admin_cidr]
     from_port   = "22"
     protocol    = "tcp"
     self        = "false"
@@ -179,19 +179,19 @@ resource "aws_security_group" "tfer--mlflow-ec2-sg_sg-0b61e357948375b5f" {
   }
 
   ingress {
-    cidr_blocks     = ["86.213.23.196/32"]
+    cidr_blocks     = [var.admin_cidr]
     from_port       = "5000"
     protocol        = "tcp"
-    security_groups = ["${data.terraform_remote_state.sg.outputs.aws_security_group_tfer--nappecast-ec2-group_sg-068b0a101c18effad_id}"]
+    security_groups = [aws_security_group.tfer--nappecast-ec2-group_sg-068b0a101c18effad.id]
     self            = "false"
     to_port         = "5000"
   }
 
   ingress {
-    cidr_blocks     = ["86.213.23.196/32"]
+    cidr_blocks     = [var.admin_cidr]
     from_port       = "5432"
     protocol        = "tcp"
-    security_groups = ["${data.terraform_remote_state.sg.outputs.aws_security_group_tfer--nappecast-ec2-group_sg-068b0a101c18effad_id}"]
+    security_groups = [aws_security_group.tfer--nappecast-ec2-group_sg-068b0a101c18effad.id]
     self            = "true"
     to_port         = "5432"
   }
@@ -228,7 +228,7 @@ resource "aws_security_group" "tfer--nappecast-ec2-group_sg-068b0a101c18effad" {
   }
 
   ingress {
-    cidr_blocks = ["86.213.23.196/32"]
+    cidr_blocks = [var.admin_cidr]
     from_port   = "22"
     protocol    = "tcp"
     self        = "false"
@@ -239,7 +239,7 @@ resource "aws_security_group" "tfer--nappecast-ec2-group_sg-068b0a101c18effad" {
     description     = "Lambda trigger pipeline"
     from_port       = "8000"
     protocol        = "tcp"
-    security_groups = ["${data.terraform_remote_state.sg.outputs.aws_security_group_tfer--nappecast-lambda-trigger-sg_sg-065b0eaa02d80fb84_id}"]
+    security_groups = [aws_security_group.tfer--nappecast-lambda-trigger-sg_sg-065b0eaa02d80fb84.id]
     self            = "false"
     to_port         = "8000"
   }
@@ -247,7 +247,7 @@ resource "aws_security_group" "tfer--nappecast-ec2-group_sg-068b0a101c18effad" {
   ingress {
     from_port       = "8000"
     protocol        = "tcp"
-    security_groups = ["${data.terraform_remote_state.sg.outputs.aws_security_group_tfer--airflow-ec2-sg_sg-0d34dad32a2811316_id}"]
+    security_groups = [aws_security_group.tfer--airflow-ec2-sg_sg-0d34dad32a2811316.id]
     self            = "false"
     to_port         = "8000"
   }
@@ -299,7 +299,7 @@ resource "aws_security_group" "tfer--nappecast-sg_sg-0052194108a4fd96e" {
   }
 
   ingress {
-    cidr_blocks = ["86.213.23.196/32"]
+    cidr_blocks = [var.admin_cidr]
     from_port   = "22"
     protocol    = "tcp"
     self        = "false"
@@ -322,7 +322,7 @@ resource "aws_security_group" "tfer--rds-nappecast-sg_sg-0775b4249e3eb9757" {
   }
 
   ingress {
-    cidr_blocks = ["86.213.23.196/32"]
+    cidr_blocks = [var.admin_cidr]
     description = "Postgre"
     from_port   = "5432"
     protocol    = "tcp"
@@ -331,7 +331,7 @@ resource "aws_security_group" "tfer--rds-nappecast-sg_sg-0775b4249e3eb9757" {
   }
 
   ingress {
-    cidr_blocks = ["86.213.23.196/32"]
+    cidr_blocks = [var.admin_cidr]
     description = "SSH"
     from_port   = "22"
     protocol    = "tcp"
@@ -340,7 +340,7 @@ resource "aws_security_group" "tfer--rds-nappecast-sg_sg-0775b4249e3eb9757" {
   }
 
   ingress {
-    cidr_blocks = ["86.213.23.196/32"]
+    cidr_blocks = [var.admin_cidr]
     from_port   = "5000"
     protocol    = "tcp"
     self        = "false"
@@ -351,7 +351,7 @@ resource "aws_security_group" "tfer--rds-nappecast-sg_sg-0775b4249e3eb9757" {
     description     = "Airflow"
     from_port       = "5432"
     protocol        = "tcp"
-    security_groups = ["${data.terraform_remote_state.sg.outputs.aws_security_group_tfer--airflow-ec2-sg_sg-0d34dad32a2811316_id}"]
+    security_groups = [aws_security_group.tfer--airflow-ec2-sg_sg-0d34dad32a2811316.id]
     self            = "false"
     to_port         = "5432"
   }
