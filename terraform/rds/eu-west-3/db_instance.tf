@@ -2,7 +2,7 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  account_id = data.aws_caller_identity.current.account_id
+  account_id          = data.aws_caller_identity.current.account_id
   kms_key_arn         = "arn:aws:kms:${var.aws_region}:${local.account_id}:key/${var.rds_kms_key_id}"
   monitoring_role_arn = "arn:aws:iam::${local.account_id}:role/${var.rds_monitoring_role_name}"
 }

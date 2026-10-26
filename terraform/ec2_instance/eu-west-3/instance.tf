@@ -7,14 +7,12 @@ resource "aws_instance" "tfer--i-017d82908629e09cd_app-server" {
     capacity_reservation_preference = "open"
   }
 
-  cpu_core_count = "2"
 
   cpu_options {
     core_count       = "2"
     threads_per_core = "2"
   }
 
-  cpu_threads_per_core    = "2"
   disable_api_stop        = "false"
   disable_api_termination = "false"
   ebs_optimized           = "true"
@@ -89,14 +87,12 @@ resource "aws_instance" "tfer--i-06b315e78fa277e77_mlflow-server-sqlite" {
     capacity_reservation_preference = "open"
   }
 
-  cpu_core_count = "1"
 
   cpu_options {
     core_count       = "1"
     threads_per_core = "2"
   }
 
-  cpu_threads_per_core = "2"
 
   credit_specification {
     cpu_credits = "unlimited"
@@ -176,14 +172,12 @@ resource "aws_instance" "tfer--i-0c770608e3877ec43_airflow-orchestrator" {
     capacity_reservation_preference = "open"
   }
 
-  cpu_core_count = "2"
 
   cpu_options {
     core_count       = "2"
     threads_per_core = "2"
   }
 
-  cpu_threads_per_core    = "2"
   disable_api_stop        = "false"
   disable_api_termination = "false"
   ebs_optimized           = "true"
