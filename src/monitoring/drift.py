@@ -65,7 +65,7 @@ def get_engine():
 EVAL_FRAME_QUERY = text("""
     SELECT f.horizon,
            f.last_train,
-           f.date_index,
+           f.ds                           AS date_index,
            (f.date_index - f.last_train)  AS lead_time,
            f.yhat,
            f.yhat_lower,
