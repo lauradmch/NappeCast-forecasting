@@ -51,7 +51,7 @@ from src.models.production import (
 # ---------------------------- VARIABLES ---------------------------
 CONFIG = load_config()
 
-DATA_SOURCE = os.getenv("NAPPECAST_DATA_SOURCE", "local")  # "s3" or "local"
+DATA_SOURCE = os.getenv("NAPPECAST_DATA_SOURCE", "s3")  # "s3" or "local"
 
 # ---------------------------- LOGGING --------------------------------
 logger = logging.getLogger(__name__)
