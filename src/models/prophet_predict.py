@@ -115,7 +115,7 @@ def predict(H: int, save_csv: bool = False) -> tuple[str, pd.DataFrame]:
 
     forecast = (
         forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
-        .rename(columns={"ds": "date_index"})
+        #.rename(columns={"ds": "date_index"})
         .assign(horizon=H, last_train=last_train, code_bss=code_bss, bss_id=bss_id)
         [["horizon", "last_train", "date_index", "code_bss", "bss_id",
           "yhat", "yhat_lower", "yhat_upper"]]
