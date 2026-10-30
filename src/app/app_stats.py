@@ -48,9 +48,11 @@ def spli_droughts(spli_monthly: pd.Series):
     longest, most_intense = longest_and_most_intense(events)
     return events, longest, most_intense
 
+
 # --------------------------------------------------------------------------- #
 # Chart builders
 # --------------------------------------------------------------------------- #
+@st.cache_data(show_spinner=False)  # STL is slow: don't refit at every rerun
 def fig_stl(gwl: pd.Series) -> go.Figure:
     """STL decomposition of the raw groundwater level (temporal — Noise section)."""
     series = gwl.dropna()
@@ -73,8 +75,8 @@ def fig_stl(gwl: pd.Series) -> go.Figure:
     fig.update_yaxes(gridcolor=C_GRID)
     fig.update_xaxes(gridcolor=C_GRID)
     return fig
- 
- 
+
+
 def fig_spli_monthly(spli_monthly: pd.Series) -> go.Figure:
     """Monthly SPLI diverging bars with severity lines (temporal — last graph)."""
     vals = spli_monthly.values
@@ -96,8 +98,8 @@ def fig_spli_monthly(spli_monthly: pd.Series) -> go.Figure:
     fig.update_yaxes(title="SPLI", range=[-3, 3], gridcolor=C_GRID)
     fig.update_xaxes(gridcolor=C_GRID)
     return fig
- 
- 
+
+
 def fig_spli_events(gwl: pd.Series, spli_monthly: pd.Series, longest, most_intense) -> go.Figure:
     """Groundwater level + SPLI with extreme-drought boxes
     (red = longest, blue = most intense)."""
@@ -130,8 +132,8 @@ def fig_spli_events(gwl: pd.Series, spli_monthly: pd.Series, longest, most_inten
     fig.update_yaxes(gridcolor=C_GRID)
     fig.update_xaxes(gridcolor=C_GRID)
     return fig
- 
- 
+
+
 def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
     """Cross-correlation of selected drivers vs SPLI (extreme_events — last graph)."""
     resp = monthly_indices[SPLI_COL]
@@ -163,115 +165,112 @@ def fig_ccf(monthly_indices: dict, selected_drivers, maxlag=12):
     return fig, best_txt
 
 
+def _caption(html: str) -> None:
+    """Small grey explanatory text (styled by the .caption CSS class in app.py)."""
+    st.markdown(f'<p class="caption">{html}</p>', unsafe_allow_html=True)
+
+
 def render_stats(code_bss: str, df_processed: pd.DataFrame):
     if df_processed is None or df_processed.empty:
         st.warning("No dataset loaded.")
         st.stop()
     df = to_datetime_index(df_processed)
-    
+
     # Required columns check
     missing_core = [c for c in (TARGET_COL, SPLI_COL) if c not in df.columns]
     if missing_core:
         st.error(f"Missing required column(s): {missing_core}. "
-                f"The dataset must contain `{TARGET_COL}` (raw level) and `{SPLI_COL}` (index).")
+                 f"The dataset must contain `{TARGET_COL}` (raw level) and `{SPLI_COL}` (index).")
         st.stop()
-    
+
     present_drivers = [c for c in DRIVER_LABELS if c in df.columns]
     missing_drivers = [c for c in DRIVER_LABELS if c not in df.columns]
-    
+
     # Monthly views of every available index column
     monthly_indices = {name: monthly(df[name]) for name in [SPLI_COL] + present_drivers}
     spli_m = monthly_indices[SPLI_COL]
-    
+
     # KPI row
     span = f"{df.index.min().date()} → {df.index.max().date()}"
-    ev_all, longest, most_intense = spli_droughts(spli_m)    
+    ev_all, longest, most_intense = spli_droughts(spli_m)
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("Records (daily)", f"{len(df):,}")
     k2.metric("Period covered", span)
     k3.metric("Months of SPLI", f"{spli_m.notna().sum()}")
     k4.metric(f"Drought events (SPLI<{DROUGHT_EVENT_THRESHOLD})", f"{len(ev_all)}")
-    
+
     if missing_drivers:
         st.caption(f"Note: driver indices not found in the dataset, skipped: {missing_drivers}")
-    
+
     st.divider()
-    
+
     # ---- Section 1: Temporal structure ----
     st.header("1 · Temporal structure of the groundwater level")
-    
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("Signal, seasonality & noise")
-    st.markdown(
-        '<p class="caption">STL (Seasonal-Trend decomposition using LOESS) splits the daily '
-        'level into a slow <b>trend</b>, a repeating <b>seasonal</b> cycle and the residual '
-        '<b>noise</b>. LOESS = locally weighted regression fitted on a sliding window; '
-        '<code>robust=True</code> down-weights weather anomalies.</p>',
-        unsafe_allow_html=True,
-    )
-    with st.spinner("Fitting STL decomposition…"):
-        st.plotly_chart(fig_stl(df[TARGET_COL]), use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+
+    with st.container(border=True):
+        st.subheader("Signal, seasonality & noise")
+        _caption(
+            'STL (Seasonal-Trend decomposition using LOESS) splits the daily '
+            'level into a slow <b>trend</b>, a repeating <b>seasonal</b> cycle and the residual '
+            '<b>noise</b>. LOESS = locally weighted regression fitted on a sliding window; '
+            '<code>robust=True</code> down-weights weather anomalies.'
+        )
+        with st.spinner("Fitting STL decomposition…"):
+            fig_decomp = fig_stl(df[TARGET_COL])
+        st.plotly_chart(fig_decomp, use_container_width=True)
+
+    with st.container(border=True):
         st.subheader("Standardised Piezometric Level Index (SPLI)")
-        st.markdown(
-            '<p class="caption">SPLI standardises each month against its own history: 0 is the '
+        _caption(
+            'SPLI standardises each month against its own history: 0 is the '
             'historical median, blue is wetter, red drier. Dashed lines mark the standard drought '
             'severity thresholds (moderate −1, severe −1.5, extreme −2). Read directly from the '
-            '<code>SPLI</code> column.</p>',
-            unsafe_allow_html=True,
+            '<code>SPLI</code> column.'
         )
         st.plotly_chart(fig_spli_monthly(spli_m), use_container_width=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-        
     st.divider()
-    
+
     # ---- Section 2: Extreme events ----
     st.header("2 · Extreme hydrological events")
-    
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("Extreme droughts on the SPLI")
-    st.markdown(
-        '<p class="caption">Droughts detected by events below SPLI = −1.5 '
-        '<span style="color:#c0392b;font-weight:600">Red box</span> = longest event, '
-        '<span style="color:#2471a3;font-weight:600">blue box</span> = most intense event.</p>',
-        unsafe_allow_html=True,
-    )
-    st.plotly_chart(fig_spli_events(df[TARGET_COL], spli_m, longest, most_intense), use_container_width=True)
-    if longest is not None:
-        cA, cB = st.columns(2)
-        cA.metric("Longest drought (months)", int(longest["duration_m"]),
-                f"{longest['start'].date()} → {longest['end'].date()}")
-        cB.metric("Most intense (peak SPLI)", f"{most_intense['peak']:.2f}",
-                f"{most_intense['start'].date()} → {most_intense['end'].date()}")
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("What drives the groundwater · lagged cross-correlation")
-    st.markdown(
-        '<p class="caption">Each curve is the Pearson correlation between a climate driver at '
-        'month <i>t</i> and the SPLI at month <i>t + lag</i>. The lag of the peak is the effective '
-        '<b>recharge delay</b>. Select drivers and move the lag horizon.</p>',
-        unsafe_allow_html=True,
-    )
-    if not present_drivers:
-        st.info("No driver index columns found in the dataset.")
-    else:
-        default_sel = [n for n in ["SPI", "SPEI", "SSMI"] if n in present_drivers] or present_drivers[:3]
-        c_left, c_right = st.columns([2, 1])
-        with c_left:
-            selected = st.multiselect("Climate drivers to display", options=present_drivers,
-                                    default=default_sel,
-                                    format_func=lambda n: DRIVER_LABELS.get(n, n))
-        with c_right:
-            maxlag = st.slider("Max lag (months)", 3, 24, 12)
-        if not selected:
-            st.info("Select at least one driver above.")
+
+    with st.container(border=True):
+        st.subheader("Extreme droughts on the SPLI")
+        _caption(
+            f'Droughts detected as events below SPLI = {DROUGHT_EVENT_THRESHOLD}. '
+            '<span style="color:#c0392b;font-weight:600">Red box</span> = longest event, '
+            '<span style="color:#2471a3;font-weight:600">blue box</span> = most intense event.'
+        )
+        st.plotly_chart(fig_spli_events(df[TARGET_COL], spli_m, longest, most_intense),
+                        use_container_width=True)
+        if longest is not None:
+            cA, cB = st.columns(2)
+            cA.metric("Longest drought (months)", int(longest["duration_m"]),
+                      f"{longest['start'].date()} → {longest['end'].date()}")
+            cB.metric("Most intense (peak SPLI)", f"{most_intense['peak']:.2f}",
+                      f"{most_intense['start'].date()} → {most_intense['end'].date()}")
+
+    with st.container(border=True):
+        st.subheader("What drives the groundwater · lagged cross-correlation")
+        _caption(
+            'Each curve is the Pearson correlation between a climate driver at '
+            'month <i>t</i> and the SPLI at month <i>t + lag</i>. The lag of the peak is the effective '
+            '<b>recharge delay</b>. Select drivers and move the lag horizon.'
+        )
+        if not present_drivers:
+            st.info("No driver index columns found in the dataset.")
         else:
-            fig_c, best_txt = fig_ccf(monthly_indices, selected, maxlag)
-            st.plotly_chart(fig_c, use_container_width=True)
-            st.markdown("  \n".join(best_txt))
-    st.markdown("</div>", unsafe_allow_html=True)
-    
+            default_sel = [n for n in ["SPI", "SPEI", "SSMI"] if n in present_drivers] or present_drivers[:3]
+            c_left, c_right = st.columns([2, 1])
+            with c_left:
+                selected = st.multiselect("Climate drivers to display", options=present_drivers,
+                                          default=default_sel,
+                                          format_func=lambda n: DRIVER_LABELS.get(n, n))
+            with c_right:
+                maxlag = st.slider("Max lag (months)", 3, 24, 12)
+            if not selected:
+                st.info("Select at least one driver above.")
+            else:
+                fig_c, best_txt = fig_ccf(monthly_indices, selected, maxlag)
+                st.plotly_chart(fig_c, use_container_width=True)
+                st.markdown("  \n".join(best_txt))

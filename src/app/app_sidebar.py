@@ -9,9 +9,9 @@ import ast
 import os
 
 import pandas as pd
-import plotly.express as px
 import requests
 import streamlit as st
+import plotly.graph_objects as go   # en haut du fichier (px peut rester importé ou être retiré)
 
 from src.app import api_client
 from src.config import load_config
@@ -37,21 +37,23 @@ def render_sidebar(df_station: pd.DataFrame, code_bss: str) -> None:
     with st.sidebar:
         st.header(f"**Piezometer {station['libelle_pe']}**")
         st.caption(f"BSS {station['bss_id']} — {station['code_bss']}")
-        fig = px.scatter_map(
-            df_station,
-            lat="latitude",
-            lon="longitude",
-            hover_name="libelle_pe",
-            zoom=6
-        )
+
+        lat, lon = float(station["latitude"]), float(station["longitude"])
+        fig = go.Figure(go.Scattermap(
+            lat=[lat], lon=[lon],
+            mode="markers",
+            marker=dict(size=16, color="#FF4B4B"),
+            text=[station["libelle_pe"]],
+            hoverinfo="text",
+        ))
         fig.update_layout(
-            map_style="open-street-map",
-            uirevision="constant",
+            map=dict(style="open-street-map", center=dict(lat=lat, lon=lon), zoom=9),
+            uirevision=str(code_bss),  
             height=250,
             margin=dict(l=0, r=0, t=0, b=0),
         )
-        fig.update_traces(marker=dict(size=16, color="#FF4B4B"))
         st.plotly_chart(fig, use_container_width=True)
+
         st.subheader("Localisation")
         st.write(f"**Commune :** {station['nom_commune']} ({station['code_commune_insee']})")
         st.write(f"**Département :** {station['nom_departement']} ({station['code_departement']})")
